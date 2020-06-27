@@ -1,0 +1,25 @@
+PAGE
+    Toplevel: EV_GUI
+        Message: prj_name  
+        Menu Bar
+        Labelframe: Labelframe1  
+            Label: Label1  
+            Entry: Entry1  
+            Label: Label1_8  
+            Label: Label1_9  
+            Label: Label1_10  
+            Label: Label1_11  
+            Label: Label1_12  
+            Entry: Entry1_13  
+            Entry: Entry1_14  
+            Entry: Entry1_15  
+            Entry: Entry1_16  
+            Entry: Entry1_17  
+        Labelframe: Labelframe1_6  
+            Button: Button1  
+            Button: Button1_18  
+            Button: Button1_19  
+            Button: Button1_20  
+            Button: Button1_21  
+        Labelframe: Labelframe1_7  
+
