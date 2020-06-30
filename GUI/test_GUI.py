@@ -20,6 +20,14 @@ except ImportError:
     py3 = True
 
 import test_GUI_support
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
+ 
+# Implement the default Matplotlib key bindings.
+from matplotlib.backend_bases import key_press_handler
+from matplotlib.figure import Figure
+import numpy as np
+
 
 def vp_start_gui():
     '''Starting point when module is the main routine.'''
@@ -32,7 +40,22 @@ def vp_start_gui():
     logo_label = tk.Label(root, image = logo)
     logo_label.place(relx=0.015, rely=0.015)
     logo_label.configure(background = "#d6c7c7")
+    #create_fig()
     root.mainloop()
+
+def create_fig(parent):
+    fig = Figure( dpi=100)
+    t = [0,1,2,3,4]
+    v = [0,100,20,30,15]
+    fig.add_subplot(111).plot(t, v)
+    
+    canvas = FigureCanvasTkAgg(fig, master=parent)  # A tk.DrawingArea.
+    canvas.draw()
+    #canvas.get_tk_widget().pack(side=tk.TOP, expand=1)
+
+    toolbar = NavigationToolbar2TkAgg(canvas, parent)
+    toolbar.update()
+    canvas.get_tk_widget().pack(padx = 10, pady = 10, fill = 'x', expand = 1)
 
 w = None
 def create_GUI(rt, *args, **kwargs):
@@ -339,72 +362,8 @@ class GUI:
         self.Labelframe1_7.configure(relief='groove')
         self.Labelframe1_7.configure(text='''Block 3''')
         self.Labelframe1_7.configure(background="#fcfcd1")
-
-    @staticmethod
-    def popup1(event, *args, **kwargs):
-        Popupmenu1 = tk.Menu(root, tearoff=0)
-        Popupmenu1.configure(activebackground="#f9f9f9")
-        Popupmenu1.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup2(event, *args, **kwargs):
-        Popupmenu2 = tk.Menu(root, tearoff=0)
-        Popupmenu2.configure(activebackground="#f9f9f9")
-        Popupmenu2.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup3(event, *args, **kwargs):
-        Popupmenu3 = tk.Menu(root, tearoff=0)
-        Popupmenu3.configure(activebackground="#f9f9f9")
-        Popupmenu3.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup4(event, *args, **kwargs):
-        Popupmenu4 = tk.Menu(root, tearoff=0)
-        Popupmenu4.configure(activebackground="#f9f9f9")
-        Popupmenu4.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup5(event, *args, **kwargs):
-        Popupmenu5 = tk.Menu(root, tearoff=0)
-        Popupmenu5.configure(activebackground="#f9f9f9")
-        Popupmenu5.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup6(event, *args, **kwargs):
-        Popupmenu6 = tk.Menu(root, tearoff=0)
-        Popupmenu6.configure(activebackground="#f9f9f9")
-        Popupmenu6.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup7(event, *args, **kwargs):
-        Popupmenu7 = tk.Menu(root, tearoff=0)
-        Popupmenu7.configure(activebackground="#f9f9f9")
-        Popupmenu7.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup8(event, *args, **kwargs):
-        Popupmenu8 = tk.Menu(root, tearoff=0)
-        Popupmenu8.configure(activebackground="#f9f9f9")
-        Popupmenu8.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup9(event, *args, **kwargs):
-        Popupmenu9 = tk.Menu(root, tearoff=0)
-        Popupmenu9.configure(activebackground="#f9f9f9")
-        Popupmenu9.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup10(event, *args, **kwargs):
-        Popupmenu10 = tk.Menu(root, tearoff=0)
-        Popupmenu10.configure(activebackground="#f9f9f9")
-        Popupmenu10.post(event.x_root, event.y_root)
-
-    @staticmethod
-    def popup11(event, *args, **kwargs):
-        Popupmenu11 = tk.Menu(root, tearoff=0)
-        Popupmenu11.configure(activebackground="#f9f9f9")
-        Popupmenu11.post(event.x_root, event.y_root)
+        
+        create_fig(self.Labelframe1_7);
 
 if __name__ == '__main__':
     vp_start_gui()
