@@ -1,0 +1,81 @@
+VERSION "HNNBNNNYNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN/4/%%%/4/'%**4NNN///"
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: HCU Virtual_Transmitter Virtual_Receiver VCU
+
+
+BO_ 19 INV_VCU_RX: 8 Virtual_Transmitter
+ SG_ MotorSpeed : 7|8@0+ (1,0) [0|255] "RPM"  VCU
+ SG_ BatteryVoltage : 23|8@0+ (1,0) [0|255] "V"  VCU
+ SG_ InverterTemperature : 47|8@0+ (1,0) [0|255] "DegC"  VCU
+ SG_ ACCPedal : 39|8@0+ (1,0) [0|255] "%"  VCU
+ SG_ BrakeStatus : 31|8@0+ (1,0) [0|255] "bit"  VCU
+ SG_ MotorCurrent : 15|8@0- (1,0) [0|255] "A"  VCU
+ 
+BO_ 20 INV_VCU_RX1: 8 Virtual_Transmitter
+ SG_ BatteryCurrent : 7|8@0+ (1,0) [0|255] "A"  VCU
+ SG_ FaultFlags : 15|8@0+ (1,0) [0|255] ""  VCU
+ SG_ ClosedLoopError : 23|8@0+ (1,0) [0|255] ""  VCU
+
+BO_ 21 VCU_INV_TX: 8 VCU
+ SG_ VCUCommand : 7|8@0+ (1,0) [0|255] ""  Virtual_Transmitter
+ SG_ VCU_SpeedRequest : 15|8@0+ (1,0) [0|255] "km/h"  Virtual_Transmitter
+
+
+
+BA_DEF_  "BusType" STRING ;
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 10000;
+BA_DEF_ BO_  "GenMsgSendType" ENUM  "Cyclic","Event","Mixed","Not_Applicable";
+BA_DEF_ BO_  "GenMsgChecksum" STRING ;
+BA_DEF_ BO_  "GenMsgChecksumID" INT 0 10000;
+BA_DEF_ BO_  "GenMsgCounter" STRING ;
+BA_DEF_ BO_  "GenMsgDirection" STRING ;
+BA_DEF_ SG_  "GenSignalType" STRING ;
+BA_DEF_DEF_  "BusType" "";
+BA_DEF_DEF_  "GenMsgCycleTime" 10;
+BA_DEF_DEF_  "GenMsgSendType" "Cyclic";
+BA_DEF_DEF_  "GenMsgChecksum" "Not_Applicable";
+BA_DEF_DEF_  "GenMsgChecksumID" 10.0000001611288;
+BA_DEF_DEF_  "GenMsgCounter" "Not_Applicable";
+BA_DEF_DEF_  "GenMsgDirection" "RX";
+BA_DEF_DEF_  "GenSignalType" "STANDARD";
+BA_ "BusType" "CAN";
+BA_ "GenMsgSendType" BO_ 19 3;
+BA_ "GenMsgCycleTime" BO_ 19 100;
+BA_ "GenMsgSendType" BO_ 20 3;
+BA_ "GenMsgCycleTime" BO_ 20 100;
+BA_ "GenMsgSendType" BO_ 21 3;
+BA_ "GenMsgCycleTime" BO_ 21 100;
+
