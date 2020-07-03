@@ -98,6 +98,7 @@ def CAN_Thread():
         try:
             rcv_msg = bus.recv(timeout = None)			
             if(rcv_msg.arbitration_id == 19):
+				print("CAN Thread: Getting new CAN Message!")
                 msg = rcv_msg.data
                 cnt = cnt + 1
                 if(cnt > 20):
@@ -105,19 +106,14 @@ def CAN_Thread():
                     try:
                         #for index in range(len(LON)):
                         update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-                        #ret = handlingThreadObject.updatePayload(LAT[index], LON[index], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5])
 
-                        if(ret):
-                            print("Debug: Published Message Successfully!")
-                        else:
-                            print("Error: Failed to publish Message!")
                     except Exception as ex:
                         print(ex)
                         continue
 			            #msg = [0,1,2,3,4,5]
 			            #print("Debug: Message! Can")
         except:
-            print("Error CAN Message!")                        
+            print("CAN Thread: Error CAN Message!")                        
             continue
 		#time.sleep(CAN_RATE) 
 
@@ -125,8 +121,13 @@ def Publish_Thread():
     establishConnection()
     while True:
         if(DATA_READY):
+			print("Publish Thread: Data are updated, ready to be published!") 
             jsonPayload = json.dumps(__payloadDict)
-            client.publish(__topic, jsonPayload)
+            ret = client.publish(__topic, jsonPayload)
+			if (ret):
+				print("Publish Thread: Data Published successfully!)	
+			else:
+				print("Publish Thread: Data Can not be published!)
         else:
             pass
         #time.sleep(PUBLISH_RATE)
