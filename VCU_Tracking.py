@@ -125,9 +125,9 @@ def Publish_Thread():
             jsonPayload = json.dumps(__payloadDict)
             ret = client.publish(__topic, jsonPayload)
 			if (ret):
-				print("Publish Thread: Data Published successfully!)	
+				print("Publish Thread: Data Published successfully!")	
 			else:
-				print("Publish Thread: Data Can not be published!)
+				print("Publish Thread: Data can not be published!")
         else:
             pass
         #time.sleep(PUBLISH_RATE)
