@@ -29,19 +29,28 @@ from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import numpy as np
 
-def vp_start_gui():
+var_en_Accel = None
+
+def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
-    global val, w, root
-    root = tk.Tk()
-    root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = 'icon.png'))
+    global val, w
+    #root = tk.Tk()
+    root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = '/home/pi/EV/ev-bosch/GUI/icon.png'))
     test_GUI_support.set_Tk_var()
+    init_textVar()
     top = GUI (root)
     test_GUI_support.init(root, top)
-    logo = tk.PhotoImage(file="logo.png")
+    logo = tk.PhotoImage(file="/home/pi/EV/ev-bosch/GUI/logo.png")
     logo_label = tk.Label(root, image = logo)
     logo_label.place(relx=0.015, rely=0.015)
     logo_label.configure(background = "#d6c7c7")
-    root.mainloop()
+
+    return top
+    #root.mainloop()
+
+def init_textVar():
+    global var_en_Accel
+    var_en_Accel = tk.StringVar()
 
 def create_fig(parent):
     fig = Figure( dpi=100)
@@ -74,6 +83,10 @@ def destroy_GUI():
     global w
     w.destroy()
     w = None
+
+def GUI_update(cnt):
+    global var_en_Accel
+    var_en_Accel.set(cnt)
 
 class GUI:
     def __init__(self, top=None):
@@ -137,7 +150,7 @@ class GUI:
                 , bordermode='ignore')
         self.en_VehSpd.configure(background="white")
         self.en_VehSpd.configure(cursor="")
-        self.en_VehSpd.configure(font="TkFixedFont")
+        self.en_VehSpd.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.en_VehSpd.configure(selectbackground="#c4c4c4")
 
         self.lb_Trq = tk.Label(self.Labelframe1)
@@ -168,21 +181,21 @@ class GUI:
         self.en_Trq.place(relx=0.625, rely=0.545, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Trq.configure(background="white")
-        self.en_Trq.configure(font="TkFixedFont")
+        self.en_Trq.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.en_Trq.configure(selectbackground="#c4c4c4")
 
         self.en_Brk = tk.Entry(self.Labelframe1)
         self.en_Brk.place(relx=0.623, rely=0.171, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Brk.configure(background="white")
-        self.en_Brk.configure(font="TkFixedFont")
+        self.en_Brk.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.en_Brk.configure(selectbackground="#c4c4c4")
 
-        self.en_Acc = tk.Entry(self.Labelframe1)
+        self.en_Acc = tk.Entry(self.Labelframe1, textvariable = var_en_Accel)
         self.en_Acc.place(relx=0.149, rely=0.54, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Acc.configure(background="white")
-        self.en_Acc.configure(font="TkFixedFont")
+        self.en_Acc.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.en_Acc.configure(selectbackground="#c4c4c4")
 
         self.Labelframe1_6 = tk.LabelFrame(top)
@@ -438,9 +451,10 @@ class GUI:
         self.Message1.configure(text='''Description: User gives the value of K1, K2 and Power-Loss Constant (C)''')
         self.Message1.configure(width=502)
         
-        create_fig(self.TNotebook1_t1_8);
-        create_fig(self.TNotebook1_t2_9);
+        create_fig(self.TNotebook1_t1_8)
+        create_fig(self.TNotebook1_t2_9)
 
+        
     @staticmethod
     def popup1(event, *args, **kwargs):
         Popupmenu1 = tk.Menu(root, tearoff=0)
@@ -507,6 +521,7 @@ class GUI:
         Popupmenu11.configure(activebackground="#f9f9f9")
         Popupmenu11.post(event.x_root, event.y_root)
         
+
 
 
 if __name__ == '__main__':
