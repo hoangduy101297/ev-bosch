@@ -13,14 +13,13 @@ import test_GUI as gui
 
 #from test_GUI import vp_start_gui 
 from can import Message
-from datetime import datetime
 
 LAT = [10.802478, 10.800770, 10.795431,
        10.796527, 10.793814, 10.801928, 10.806929]
 LON = [106.640324, 106.660766, 106.655795,
        106.65460, 106.651709, 106.636633, 106.635009]
 msg = [999, 999, 999, 999, 999, 999]
-cnt = 0
+data_cnt = 0
 CAN_RATE = 0.01  # 10ms
 PUBLISH_RATE = 5  # 5s
 
@@ -33,6 +32,7 @@ APP = 0
 Brk = 0
 bus = None
 send_data = [0,0,0,0]
+old_timestamp = 0
 # # DEVICE CONFIG GOES HERE
 # __tenantId = "t169603e0440c455a96c0e0a2b7f366f4_hub"
 # __device_password = "123456"
@@ -97,6 +97,27 @@ send_data = [0,0,0,0]
 #     print(_jsonPayload)
 #     DATA_READY = 1
 
+def init_data_file():
+    try:
+        os.rename("data.csv","data_backup.csv")
+    except:
+        pass
+    
+    with open("data.csv","w") as file:
+        file.write('Timestamp,Time,Data\n')
+
+def write_data_file(data):
+    global old_timestamp
+    
+    with open("data.csv","a") as file:
+        timestamp = time.time()
+        print(timestamp)
+        time_diff = timestamp - old_timestamp
+        old_timestamp = timestamp
+        ts = time.strftime("%x %X",time.gmtime(timestamp))
+        print(ts)
+        #file.write(ts,",time_diff,data\n")
+        
 
 def CAN_msg_receive():
     # reserved func
@@ -107,22 +128,26 @@ def CAN_msg_send():
     pass
 
 def CAN_Thread():
-
+    global data_cnt
     while True:
         try:
             rcv_msg = bus.recv(timeout = None)          
             if(rcv_msg.arbitration_id == 19):
                 msg = rcv_msg.data
                 Brk = msg[3]
-                try:
-                    #for index in range(len(LON)):
-                    #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-                    # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
-                    #gui.GUI_callback(msg)
-                    pass
-                except Exception as ex:
-                    print(ex)
-                    continue
+                data_cnt = data_cnt + 1
+                write_data_file(Brk)
+                if(data_cnt == 10):
+                    data_cnt = 0
+                    try:
+                        #for index in range(len(LON)):
+                        #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
+                        # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
+                        gui.GUI_callback(msg)
+                        pass
+                    except Exception as ex:
+                        print('ex',ex)
+                        continue
                 
             if(rcv_msg.arbitration_id == 21):
                 msg = rcv_msg.data
@@ -178,17 +203,12 @@ def GUI_Thread():
     gui_obj = gui.vp_start_gui(tk_obj)
     tk_obj.mainloop()
     #thread3.join()
-
-def test_Thread():
-    cnt = 0
-    while True:
-        time.sleep(1)
-        #gui.GUI_callback(cnt)
-        cnt = cnt + 1
-        
-
+    
 def main():
     global thread1, thread2, bus
+    
+    init_data_file()
+    
     bus = can.interface.Bus(bustype='socketcan', channel = 'can0',bitrate=500000)
     thread1 = Thread(target = CAN_Thread)
     thread2 = Thread(target = calculation_Thread)
