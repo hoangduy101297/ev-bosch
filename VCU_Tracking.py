@@ -98,26 +98,29 @@ old_timestamp = 0
 #     DATA_READY = 1
 
 def init_data_file():
+    global old_timestamp
+    old_timestamp = time.time()
+    
+    
     try:
-        os.rename("data.csv","data_backup.csv")
+        os.mkdir(os.path.realpath('..')+"/ev-bosch/_out")
+        os.rename(os.path.realpath('..')+"/_out/data.csv","/_out/data_backup.csv")
     except:
         pass
     
-    with open("data.csv","w") as file:
-        file.write('Timestamp,Time,Data\n')
+    with open(os.path.realpath('..')+"/ev-bosch/_out/data.csv","w") as file:
+        file.write('Timestamp,Time(s),Data\n')
 
 def write_data_file(data):
     global old_timestamp
     
-    with open("data.csv","a") as file:
+    with open(os.path.realpath('..')+"/ev-bosch/_out/data.csv","a") as file:
         timestamp = time.time()
-        print(timestamp)
-        time_diff = timestamp - old_timestamp
-        old_timestamp = timestamp
-        ts = time.strftime("%x %X",time.gmtime(timestamp))
-        print(ts)
-        #file.write(ts,",time_diff,data\n")
+        time_diff = round(timestamp - old_timestamp,2)       
+
+        file.write(time.strftime("%x %X",time.gmtime(timestamp))+","+str(time_diff)+","+str(data)+"\n")
         
+        return time_diff
 
 def CAN_msg_receive():
     # reserved func
@@ -136,18 +139,16 @@ def CAN_Thread():
                 msg = rcv_msg.data
                 Brk = msg[3]
                 data_cnt = data_cnt + 1
-                write_data_file(Brk)
-                if(data_cnt == 10):
-                    data_cnt = 0
-                    try:
+                time_diff = write_data_file(Brk)
+                data_cnt = 0
+                try:
                         #for index in range(len(LON)):
                         #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-                        # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
-                        gui.GUI_callback(msg)
-                        pass
-                    except Exception as ex:
-                        print('ex',ex)
-                        continue
+                        # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat
+                    gui.GUI_callback(msg, time_diff)
+                except Exception as ex:
+                    print('ex',ex)
+                    continue
                 
             if(rcv_msg.arbitration_id == 21):
                 msg = rcv_msg.data

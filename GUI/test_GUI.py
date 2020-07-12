@@ -48,6 +48,7 @@ spd_data = []
 trq_data = []
 time_data = []
 time = 0
+data_rcv_cnt = [0,0]
 
 def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
@@ -55,12 +56,10 @@ def vp_start_gui(root):
     #root = tk.Tk()
     root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = os.path.realpath('..')+'/ev-bosch/GUI/icon.png'))
     test_GUI_support.set_Tk_var()
-    top = GUI (root)
-    
     init_textVar()
+    top = GUI (root)
 
     test_GUI_support.init(root, top)
-
 
     g_fig[0], g_canvas[0] = create_fig(top.TNotebook1_t1_8)
     g_fig[1], g_canvas[1] = create_fig(top.TNotebook1_t2_9)
@@ -70,8 +69,7 @@ def vp_start_gui(root):
     logo_label.configure(background = "#d6c7c7")
     logo_label.place(relx=0.015, rely=0.015) 
     
-    #return top
-    root.mainloop()
+    return top
 
 def init_textVar():
     global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq, var_en_Console
@@ -95,10 +93,20 @@ def create_fig(parent):
     
     return fig, canvas
 
-def GUI_callback(new_data):
-     
-    update_data(new_data)
-    update_fig()
+def GUI_callback(new_data, time):
+    global data_rcv_cnt, time_data
+    
+    data_rcv_cnt[0] = data_rcv_cnt[0] + 1
+    data_rcv_cnt[1] = data_rcv_cnt[1] + 1
+
+    if(data_rcv_cnt[0] == 5):
+        data_rcv_cnt[0] = 0
+        update_data(new_data)
+        
+    if(data_rcv_cnt[1] == 20):
+        data_rcv_cnt[1] = 0
+        time_data.append(time)
+        update_fig(new_data)
 
 def update_data(new_data):
     # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
@@ -108,14 +116,12 @@ def update_data(new_data):
     var_en_Brk.set(new_data[3])
     var_en_VehSpd.set(new_data[0])
     var_en_Trq.set(new_data[4]) #dummy
-    
+
+
+def update_fig(new_data):
     spd_data.append(new_data[0])
     trq_data.append(new_data[3])#dummy
     
-    time = time + 0.1
-    time_data.append(time)
-
-def update_fig(): 
     g_fig[0].add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
     g_canvas[0].draw()
     
