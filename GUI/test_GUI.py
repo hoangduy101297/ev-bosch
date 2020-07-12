@@ -27,19 +27,34 @@ from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
+import matplotlib.animation as animation
 import numpy as np
 
+#Global Var
 var_en_Accel = None
+var_en_Brk = None
+var_en_VehSpd = None
+var_en_Trq = None
+
+#0: Spd, 1: Trq
+g_fig = [None, None]
+g_canvas = [None, None]
+
+spd_data = []
+trq_data = []
+time_data = []
 
 def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
-    global val, w
+    global val, w, spd_fig, g_fig, g_canvas
     #root = tk.Tk()
     root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = '/home/pi/EV/ev-bosch/GUI/icon.png'))
     test_GUI_support.set_Tk_var()
     init_textVar()
     top = GUI (root)
     test_GUI_support.init(root, top)
+    g_fig[0], g_canvas[0] = create_fig(top.TNotebook1_t1_8)
+    g_fig[1], g_canvas[1] = create_fig(top.TNotebook1_t2_9)
     logo = tk.PhotoImage(file="/home/pi/EV/ev-bosch/GUI/logo.png")
     logo_label = tk.Label(root, image = logo)
     logo_label.place(relx=0.015, rely=0.015)
@@ -49,22 +64,55 @@ def vp_start_gui(root):
     #root.mainloop()
 
 def init_textVar():
-    global var_en_Accel
+    global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq
+    
     var_en_Accel = tk.StringVar()
+    var_en_Brk = tk.StringVar()
+    var_en_VehSpd = tk.StringVar()
+    var_en_Trq = tk.StringVar()
 
 def create_fig(parent):
-    fig = Figure( dpi=100)
-    t = [0,1,2,3,4]
-    v = [0,100,20,30,15]
-    fig.add_subplot(111).plot(t, v)
+    fig = Figure(dpi=100)
+    fig.add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(0, 0, color = 'r')
     
     canvas = FigureCanvasTkAgg(fig, master=parent)  # A tk.DrawingArea.
     canvas.draw()
-    #canvas.get_tk_widget().pack(side=tk.TOP, expand=1)
-
+    
     toolbar = NavigationToolbar2TkAgg(canvas, parent)
     toolbar.update()
     canvas.get_tk_widget().pack(padx = 10, pady = 10, fill = 'x', expand = 1)
+    
+    return fig, canvas
+
+def GUI_callback(new_data):
+    global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq
+    
+    var_en_Accel.set(new_data)
+    var_en_Brk.set(new_data)
+    var_en_VehSpd.set(new_data)
+    var_en_Trq.set(new_data)
+    
+    update_data(new_data)
+    update_fig()
+
+def update_data(new_data):
+    global spd_data, trq_data, time_data
+    
+    spd_data.append(np.random.rand(1)*100)
+    trq_data.append(np.random.rand(1)*100)
+    time_data.append(new_data)
+
+def update_fig(): 
+    g_fig[0].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
+    g_canvas[0].draw()
+    
+    g_fig[1].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, trq_data, color = 'r')
+    g_canvas[1].draw()
+
+
+#############################################
+##########Generated Function#################
+#############################################
 
 w = None
 def create_GUI(rt, *args, **kwargs):
@@ -83,10 +131,6 @@ def destroy_GUI():
     global w
     w.destroy()
     w = None
-
-def GUI_update(cnt):
-    global var_en_Accel
-    var_en_Accel.set(cnt)
 
 class GUI:
     def __init__(self, top=None):
@@ -145,7 +189,7 @@ class GUI:
         self.lb_VehSpd.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.lb_VehSpd.configure(text='''Speed''')
 
-        self.en_VehSpd = tk.Entry(self.Labelframe1)
+        self.en_VehSpd = tk.Entry(self.Labelframe1, textvariable = var_en_VehSpd)
         self.en_VehSpd.place(relx=0.149, rely=0.171, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_VehSpd.configure(background="white")
@@ -177,14 +221,14 @@ class GUI:
         self.la_Acc.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.la_Acc.configure(text='''Accel''')
 
-        self.en_Trq = tk.Entry(self.Labelframe1)
+        self.en_Trq = tk.Entry(self.Labelframe1, textvariable = var_en_Trq)
         self.en_Trq.place(relx=0.625, rely=0.545, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Trq.configure(background="white")
         self.en_Trq.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.en_Trq.configure(selectbackground="#c4c4c4")
 
-        self.en_Brk = tk.Entry(self.Labelframe1)
+        self.en_Brk = tk.Entry(self.Labelframe1, textvariable = var_en_Brk)
         self.en_Brk.place(relx=0.623, rely=0.171, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Brk.configure(background="white")
@@ -450,9 +494,6 @@ class GUI:
         self.Message1.configure(pady="0")
         self.Message1.configure(text='''Description: User gives the value of K1, K2 and Power-Loss Constant (C)''')
         self.Message1.configure(width=502)
-        
-        create_fig(self.TNotebook1_t1_8)
-        create_fig(self.TNotebook1_t2_9)
 
         
     @staticmethod

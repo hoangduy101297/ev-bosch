@@ -152,7 +152,7 @@ def test_Thread():
     cnt = 0
     while True:
         time.sleep(0.5)
-        gui.GUI_update(cnt)
+        gui.GUI_callback(cnt)
         cnt = cnt + 1
         
 
