@@ -7,7 +7,8 @@
 
 
 import sys
-import xlsxwriter
+import os
+#import xlsxwriter
 
 try:
     import Tkinter as tk
@@ -52,20 +53,25 @@ def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
     global val, w, spd_fig, g_fig, g_canvas, top
     #root = tk.Tk()
-    root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = '/home/pi/Duy/GUI/ev-bosch/GUI/icon.png'))
+    root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = os.path.realpath('..')+'/ev-bosch/GUI/icon.png'))
     test_GUI_support.set_Tk_var()
-    init_textVar()
     top = GUI (root)
+    
+    init_textVar()
+
     test_GUI_support.init(root, top)
+
+
     g_fig[0], g_canvas[0] = create_fig(top.TNotebook1_t1_8)
     g_fig[1], g_canvas[1] = create_fig(top.TNotebook1_t2_9)
-    logo = tk.PhotoImage(file="/home/pi/Duy/GUI/ev-bosch/GUI/logo.png")
+    
+    logo = tk.PhotoImage(file= os.path.realpath('..')+'/ev-bosch/GUI/logo.png')
     logo_label = tk.Label(root, image = logo)
-    logo_label.place(relx=0.015, rely=0.015)
     logo_label.configure(background = "#d6c7c7")
-
-    return top
-    #root.mainloop()
+    logo_label.place(relx=0.015, rely=0.015) 
+    
+    #return top
+    root.mainloop()
 
 def init_textVar():
     global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq, var_en_Console
@@ -178,7 +184,7 @@ class GUI:
         top.configure(highlightthickness="1")
 
         self.prj_name = tk.Message(top)
-        self.prj_name.place(relx=0.119, rely=0.009, relheight=0.059
+        self.prj_name.place(relx=0.125, rely=0.009, relheight=0.059
                 , relwidth=0.219)
         self.prj_name.configure(background="#d6c7c7")
         self.prj_name.configure(font="-family {DejaVu Serif} -size 15 -weight normal -slant roman -underline 0 -overstrike 0")
@@ -236,7 +242,7 @@ class GUI:
         self.la_Acc.configure(activebackground="#f9f9f9")
         self.la_Acc.configure(background="#faffba")
         self.la_Acc.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
-        self.la_Acc.configure(text='''APP''')
+        self.la_Acc.configure(text='''ACC''')
 
         self.en_Trq = tk.Entry(self.Labelframe1, textvariable = var_en_Trq)
         self.en_Trq.place(relx=0.625, rely=0.545, height=43, relwidth=0.326

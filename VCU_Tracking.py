@@ -8,8 +8,7 @@ import threading
 import random
 import sys
 import Tkinter as tk
-
-sys.path.insert(0,'/home/pi/Duy/GUI/ev-bosch/GUI')
+sys.path.insert(0,os.path.realpath('..')+'/ev-bosch/GUI')
 import test_GUI as gui
 
 #from test_GUI import vp_start_gui 
@@ -33,6 +32,7 @@ gui_obj = None
 APP = 0
 Brk = 0
 bus = None
+send_data = [0,0,0,0]
 # # DEVICE CONFIG GOES HERE
 # __tenantId = "t169603e0440c455a96c0e0a2b7f366f4_hub"
 # __device_password = "123456"
@@ -154,7 +154,7 @@ def calculation_Thread():
     global bus
     
     while True:
-        message = can.Message(arbitration_id=19, extended_id=True, data=[x[0], x[1], x[2], x[3]])
+        message = can.Message(arbitration_id=19, extended_id=True, data=[send_data[0], send_data[1], send_data[2], send_data[3]])
         bus.send(message)
         time.sleep(0.01)
 
