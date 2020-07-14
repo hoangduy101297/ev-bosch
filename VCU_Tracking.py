@@ -9,7 +9,7 @@ import random
 import sys
 import Tkinter as tk
 
-sys.path.insert(0,'/home/pi/EV/ev-bosch/GUI/')
+sys.path.insert(0,'/home/pi/Duy/GUI/ev-bosch/GUI')
 import test_GUI as gui
 
 #from test_GUI import vp_start_gui 
@@ -47,8 +47,8 @@ gui_obj = None
 #                  "value": {
 #                      "Lon": 0,
 #                      "Lat": 0,
-#             		 "VehSpd": (random.randint(0, 100)),
-#             		 "BattSt": 0,
+#                    "VehSpd": (random.randint(0, 100)),
+#                    "BattSt": 0,
 #                      "iBattSt": 0,
 #                      "BrkSt": 0,
 #                      "AppSt": 0,
@@ -59,14 +59,14 @@ gui_obj = None
 
 
 # def establishConnection():
-# 	client = paho.Client(__clientId)  # create client object
-# 	#self.client = paho.Client("test")
-# 	client.on_publish = on_publish  # assign function to callback
-# 	client.tls_set(__certificatePath)
-# 	username = __authId + "@" + __tenantId
-# 	client.username_pw_set(username, __device_password)
-# 	client.connect(__hub_adapter_host, __port, keepalive=60)  # establishing connection
-# 	#self.client.connect("10.184.150.132",1883,keepalive=60)
+#   client = paho.Client(__clientId)  # create client object
+#   #self.client = paho.Client("test")
+#   client.on_publish = on_publish  # assign function to callback
+#   client.tls_set(__certificatePath)
+#   username = __authId + "@" + __tenantId
+#   client.username_pw_set(username, __device_password)
+#   client.connect(__hub_adapter_host, __port, keepalive=60)  # establishing connection
+#   #self.client.connect("10.184.150.132",1883,keepalive=60)
 
 
 # def on_publish(client, userdata, result):  # create function for callback
@@ -106,38 +106,38 @@ def CAN_Thread():
     bus = can.interface.Bus(bustype='socketcan', bitrate=500000)
     while True:
         try:
-            rcv_msg = bus.recv(timeout = None)			
+            rcv_msg = bus.recv(timeout = None)          
             if(rcv_msg.arbitration_id == 19):
-		print("CAN Thread: Getting new CAN Message!")
+                print("CAN Thread: Getting new CAN Message!")
                 msg = rcv_msg.data
                 cnt = cnt + 1
                 if(cnt > 20):
                     cnt = 0
                     try:
                         #for index in range(len(LON)):
-                        update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-
+                        #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
+                        gui.GUI_callback(msg[0])
                     except Exception as ex:
                         print(ex)
                         continue
-			            #msg = [0,1,2,3,4,5]
-			            #print("Debug: Message! Can")
+                        #msg = [0,1,2,3,4,5]
+                        #print("Debug: Message! Can")
         except:
             print("CAN Thread: Error CAN Message!")                        
             continue
-		#time.sleep(CAN_RATE) 
+        #time.sleep(CAN_RATE) 
 
 # def Publish_Thread():
 #     establishConnection()
 #     while True:
 #         if(DATA_READY):
-# 	    print("Publish Thread: Data are updated, ready to be published!") 
+#       print("Publish Thread: Data are updated, ready to be published!") 
 #             #jsonPayload = json.dumps(__payloadDict)
 #             ret = client.publish(__topic, jsonPayload)
-# 	    if (ret):
-#                 print("Publish Thread: Data Published successfully!")	
-# 	    else:
-# 		print("Publish Thread: Data can not be published!")
+#       if (ret):
+#                 print("Publish Thread: Data Published successfully!") 
+#       else:
+#       print("Publish Thread: Data can not be published!")
 #         else:
 #             pass
 #         #time.sleep(PUBLISH_RATE)
@@ -151,33 +151,27 @@ def GUI_Thread():
 def test_Thread():
     cnt = 0
     while True:
-        time.sleep(0.5)
-        gui.GUI_callback(cnt)
+        time.sleep(1)
+        #gui.GUI_callback(cnt)
         cnt = cnt + 1
         
 
 def main():
-    global thread1, thread2, thread3
-    #thread1 = Thread(target = CAN_Thread)
-    thread2 = Thread(target = test_Thread)
-    #thread3 = Thread(target = GUI_Thread)
+    global thread1, thread2
     
-    #thread1.setDaemon(True) 
-    thread2.setDaemon(True)
-    #thread3.setDaemon(True)
+    thread1 = Thread(target = CAN_Thread)
+    #thread2 = Thread(target = test_Thread)
+    
+    thread1.setDaemon(True) 
+    t#hread2.setDaemon(True)
 
-    #thread1.start()
-    thread2.start()
-    #thread3.start()
+    thread1.start()
+    #thread2.start()
     
     GUI_Thread()
     sys.exit()
-    
-#    while True:
-#         #time.sleep(1)
-#         if exit_fl == 1:
-#             print('aaaa')
-#             sys.exit()
+
+    #while True:
 
 
 if __name__ == "__main__":
