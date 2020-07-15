@@ -24,12 +24,12 @@ def can_proc_100ms(bus):
         time.sleep(0.1)
         
 def main():
-    bus = can.interface.Bus(bustype='socketcan', bitrate=500000)
+    bus = can.interface.Bus(bustype='socketcan', channel='can1', bitrate=500000)
     
-    reset_msg = can.Message(arbitration_id=0x00, 
-                                data=[0, 0, 0, 0, 0, 0, 0, 0],
-                                is_extended_id=False)
-    bus.send(reset_msg, timeout=0.2)
+    #reset_msg = can.Message(arbitration_id=0x00, 
+    #                           data=[0, 0, 0, 0, 0, 0, 0, 0],
+    #                            is_extended_id=False)
+    #bus.send(reset_msg, timeout=0.2)
 
     can_proc_100ms(bus)
 

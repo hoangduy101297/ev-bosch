@@ -103,27 +103,22 @@ def CAN_msg_send():
     pass
 
 def CAN_Thread():
-    bus = can.interface.Bus(bustype='socketcan', bitrate=500000)
+    bus = can.interface.Bus(bustype='socketcan', channel = 'can0',bitrate=500000)
     while True:
         try:
             rcv_msg = bus.recv(timeout = None)          
             if(rcv_msg.arbitration_id == 19):
-                print("CAN Thread: Getting new CAN Message!")
                 msg = rcv_msg.data
-                cnt = cnt + 1
-                if(cnt > 20):
-                    cnt = 0
-                    try:
-                        #for index in range(len(LON)):
-                        #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-                        gui.GUI_callback(msg[0])
-                    except Exception as ex:
-                        print(ex)
-                        continue
-                        #msg = [0,1,2,3,4,5]
-                        #print("Debug: Message! Can")
-        except:
-            print("CAN Thread: Error CAN Message!")                        
+                try:
+                    #for index in range(len(LON)):
+                    #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
+                    gui.GUI_callback(msg)                    
+                except Exception as ex:
+                    print(ex)
+                    continue
+
+        except Exception as ex:
+            print("CAN Thread: Error CAN Message!", ex)                        
             continue
         #time.sleep(CAN_RATE) 
 
@@ -163,7 +158,7 @@ def main():
     #thread2 = Thread(target = test_Thread)
     
     thread1.setDaemon(True) 
-    t#hread2.setDaemon(True)
+    #thread2.setDaemon(True)
 
     thread1.start()
     #thread2.start()

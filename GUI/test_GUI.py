@@ -7,6 +7,7 @@
 
 
 import sys
+import xlsxwriter
 
 try:
     import Tkinter as tk
@@ -45,6 +46,7 @@ g_canvas = [None, None]
 spd_data = []
 trq_data = []
 time_data = []
+time = 0
 
 def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
@@ -76,7 +78,7 @@ def init_textVar():
 
 def create_fig(parent):
     fig = Figure(dpi=100)
-    fig.add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(0, 0, color = 'r')
+    fig.add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(0, 0, color = 'r')
     
     canvas = FigureCanvasTkAgg(fig, master=parent)  # A tk.DrawingArea.
     canvas.draw()
@@ -89,33 +91,40 @@ def create_fig(parent):
 
 def GUI_callback(new_data):
     global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq 
-    var_en_Accel.set(new_data)
-    var_en_Brk.set(new_data)
-    var_en_VehSpd.set(new_data)
-    var_en_Trq.set(new_data) 
+    var_en_Accel.set(new_data[0])
+    var_en_Brk.set(new_data[1])
+    var_en_VehSpd.set(new_data[2])
+    var_en_Trq.set(new_data[3]) 
     update_data(new_data)
     update_fig()
 
 def update_data(new_data):
-    global spd_data, trq_data, time_data
+    global spd_data, trq_data, time_data, time
     
-    spd_data.append(np.random.rand(1)*100)
-    trq_data.append(np.random.rand(1)*100)
-    time_data.append(new_data)
+    spd_data.append(new_data[2])
+    trq_data.append(new_data[3])
+    
+    time = time + 0.1
+    time_data.append(time)
 
 def update_fig(): 
-    g_fig[0].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
+    g_fig[0].add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
     g_canvas[0].draw()
     
-    g_fig[1].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, trq_data, color = 'r')
+    g_fig[1].add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(time_data, trq_data, color = 'r')
     g_canvas[1].draw()
 
 def send_can_cmd():
     global var_en_Console
-    text = top.en_Cmd.get()
-    print("Send can cmd", text)
-    var_en_Console.set(text)
-
+    text = top.en_Cmd.get()   
+    #var_en_Console.set(text)
+    
+    print(text)
+        
+    console_text = "Set Vehicle Speed Limit to "+text+" km/h"
+    top.en_Console.delete(1.0, tk.END)
+    top.en_Console.insert(tk.END, console_text)
+    
 #############################################
 ##########Generated Function#################
 #############################################
@@ -376,13 +385,13 @@ class GUI:
         self.btn_CmdSend.configure(cursor="fleur")
         self.btn_CmdSend.configure(text='''Send''')
 
-        self.en_Console = tk.Entry(self.Labelframe1_6, textvariable = var_en_Console)
+        self.en_Console = tk.Text(self.Labelframe1_6)
         self.en_Console.place(relx=0.079, rely=0.449, height=93, relwidth=0.836
                 , bordermode='ignore')
         self.en_Console.configure(background="#ffffffffffff")
         self.en_Console.configure(font="TkFixedFont")
         self.en_Console.configure(selectbackground="blue")
-        self.en_Console.configure(selectforeground="white", justify = "left")
+        self.en_Console.configure(selectforeground="white")
 
         self.lb_Console = tk.Label(self.Labelframe1_6)
         self.lb_Console.place(relx=0.064, rely=0.382, height=21, width=110
