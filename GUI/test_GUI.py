@@ -90,19 +90,21 @@ def create_fig(parent):
     return fig, canvas
 
 def GUI_callback(new_data):
-    global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq 
-    var_en_Accel.set(new_data[0])
-    var_en_Brk.set(new_data[1])
-    var_en_VehSpd.set(new_data[2])
-    var_en_Trq.set(new_data[3]) 
+     
     update_data(new_data)
     update_fig()
 
 def update_data(new_data):
-    global spd_data, trq_data, time_data, time
+    # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
+    global spd_data, trq_data, time_data, time, var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq 
     
-    spd_data.append(new_data[2])
-    trq_data.append(new_data[3])
+    var_en_Accel.set(new_data[1])#dummy
+    var_en_Brk.set(new_data[3])
+    var_en_VehSpd.set(new_data[0])
+    var_en_Trq.set(new_data[4]) #dummy
+    
+    spd_data.append(new_data[0])
+    trq_data.append(new_data[3])#dummy
     
     time = time + 0.1
     time_data.append(time)
@@ -234,7 +236,7 @@ class GUI:
         self.la_Acc.configure(activebackground="#f9f9f9")
         self.la_Acc.configure(background="#faffba")
         self.la_Acc.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
-        self.la_Acc.configure(text='''Accel''')
+        self.la_Acc.configure(text='''APP''')
 
         self.en_Trq = tk.Entry(self.Labelframe1, textvariable = var_en_Trq)
         self.en_Trq.place(relx=0.625, rely=0.545, height=43, relwidth=0.326

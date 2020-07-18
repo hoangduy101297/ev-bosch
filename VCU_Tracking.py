@@ -29,6 +29,10 @@ DATA_READY = 0
 exit_fl = 0
 tk_obj = tk.Tk()
 gui_obj = None
+
+APP = 0
+Brk = 0
+bus = None
 # # DEVICE CONFIG GOES HERE
 # __tenantId = "t169603e0440c455a96c0e0a2b7f366f4_hub"
 # __device_password = "123456"
@@ -103,24 +107,56 @@ def CAN_msg_send():
     pass
 
 def CAN_Thread():
-    bus = can.interface.Bus(bustype='socketcan', channel = 'can0',bitrate=500000)
+
     while True:
         try:
             rcv_msg = bus.recv(timeout = None)          
             if(rcv_msg.arbitration_id == 19):
                 msg = rcv_msg.data
+                Brk = msg[3]
                 try:
                     #for index in range(len(LON)):
                     #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-                    gui.GUI_callback(msg)                    
+                    # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
+                    #gui.GUI_callback(msg)
+                    pass
                 except Exception as ex:
                     print(ex)
                     continue
+                
+            if(rcv_msg.arbitration_id == 21):
+                msg = rcv_msg.data
+                APP = msg[3]*255 + msg[4]
+                
+                if APP > 8192:
+                    APP = 8192
+    
+                if APP > 10000:
+                    APP = 0
+                    
+                print(APP, "----",APP*0.012207)
+                try:
+                    #for index in range(len(LON)):
+                    #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
+                    # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
+                    #gui.GUI_callback(msg)
+                    pass
+                except Exception as ex:
+                    print(ex)
+                    continue     
 
         except Exception as ex:
             print("CAN Thread: Error CAN Message!", ex)                        
             continue
         #time.sleep(CAN_RATE) 
+
+def calculation_Thread():
+    global bus
+    
+    while True:
+        message = can.Message(arbitration_id=19, extended_id=True, data=[x[0], x[1], x[2], x[3]])
+        bus.send(message)
+        time.sleep(0.01)
 
 # def Publish_Thread():
 #     establishConnection()
@@ -152,16 +188,16 @@ def test_Thread():
         
 
 def main():
-    global thread1, thread2
-    
+    global thread1, thread2, bus
+    bus = can.interface.Bus(bustype='socketcan', channel = 'can0',bitrate=500000)
     thread1 = Thread(target = CAN_Thread)
-    #thread2 = Thread(target = test_Thread)
+    thread2 = Thread(target = calculation_Thread)
     
     thread1.setDaemon(True) 
-    #thread2.setDaemon(True)
+    thread2.setDaemon(True)
 
     thread1.start()
-    #thread2.start()
+    thread2.start()
     
     GUI_Thread()
     sys.exit()
