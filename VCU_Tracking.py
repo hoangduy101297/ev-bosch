@@ -101,11 +101,9 @@ def init_data_file():
     global old_timestamp
     old_timestamp = time.time()
     
-    
     try:
         os.mkdir(os.path.realpath('..')+"/ev-bosch/_out")
-        os.rename(os.path.realpath('..')+"/_out/data.csv","/_out/data_backup.csv")
-    except:
+    except Exception as ex:
         pass
     
     with open(os.path.realpath('..')+"/ev-bosch/_out/data.csv","w") as file:
@@ -118,13 +116,9 @@ def write_data_file(data):
         timestamp = time.time()
         time_diff = round(timestamp - old_timestamp,2)       
 
-        file.write(time.strftime("%x %X",time.gmtime(timestamp))+","+str(time_diff)+","+str(data)+"\n")
+        file.write(time.strftime("%x %X",time.localtime(timestamp))+","+str(time_diff)+","+str(data)+"\n")
         
         return time_diff
-
-def CAN_msg_receive():
-    # reserved func
-    pass
 
 def CAN_msg_send():
     # reserved func
@@ -137,17 +131,11 @@ def CAN_Thread():
             rcv_msg = bus.recv(timeout = None)          
             if(rcv_msg.arbitration_id == 19):
                 msg = rcv_msg.data
-                Brk = msg[3]
-                data_cnt = data_cnt + 1
                 time_diff = write_data_file(Brk)
-                data_cnt = 0
                 try:
-                        #for index in range(len(LON)):
-                        #update_payload(LAT[0], LON[0], msg[0], msg[1], msg[2], msg[3], msg[4], msg[5], msg[6])
-                        # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat
-                    gui.GUI_callback(msg, time_diff)
+                    gui.callback_updateData(msg, time_diff)
                 except Exception as ex:
-                    print('ex',ex)
+                    print('ex_CAN_Thread',ex)
                     continue
                 
             if(rcv_msg.arbitration_id == 21):
@@ -199,30 +187,49 @@ def calculation_Thread():
 #             pass
 #         #time.sleep(PUBLISH_RATE)
 
+def updateFigure_Thread():
+    global tk_obj, gui_obj
+    
+    while True:
+        try:
+            gui.update_fig()
+        except Exception as ex:
+            continue
+        time.sleep(0.2)
+
 def GUI_Thread():
     global gui_obj, tk_obj
+    print('1')
     gui_obj = gui.vp_start_gui(tk_obj)
+    print('3')
+    logo = tk.PhotoImage(file= os.path.realpath('..')+'/ev-bosch/GUI/logo.png')
+    logo_label = tk.Label(tk_obj, image = logo)
+    logo_label.configure(background = "#d6c7c7")
+    logo_label.place(relx=0.015, rely=0.015)
+    print('2')
     tk_obj.mainloop()
     #thread3.join()
     
 def main():
-    global thread1, thread2, bus
+    global thread1, thread2, thread3, bus
     
     init_data_file()
-    
     bus = can.interface.Bus(bustype='socketcan', channel = 'can0',bitrate=500000)
     thread1 = Thread(target = CAN_Thread)
-    thread2 = Thread(target = calculation_Thread)
-    
+    #thread2 = Thread(target = calculation_Thread)
+    thread3 = Thread(target = updateFigure_Thread)
     thread1.setDaemon(True) 
-    thread2.setDaemon(True)
-
+    #thread2.setDaemon(True)
+    thread3.setDaemon(True)
     thread1.start()
-    thread2.start()
-    
+    #thread2.start()
+    thread3.start()
+        
     GUI_Thread()
+            
+    os.rename(os.path.realpath('..')+"/ev-bosch/_out/data.csv",os.path.realpath('..')+"/ev-bosch/_out/data_"+str(time.strftime("%m-%d-%Y_%H%M%S",time.localtime()))+".csv")
     sys.exit()
-
+    
     #while True:
 
 

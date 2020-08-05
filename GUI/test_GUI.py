@@ -8,7 +8,6 @@
 
 import sys
 import os
-#import xlsxwriter
 
 try:
     import Tkinter as tk
@@ -29,8 +28,6 @@ from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
-import matplotlib.animation as animation
-import numpy as np
 
 #Global Var
 top = None
@@ -47,27 +44,21 @@ g_canvas = [None, None]
 spd_data = []
 trq_data = []
 time_data = []
-time = 0
-data_rcv_cnt = [0,0]
+data_rcv_cnt = 0
 
 def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
-    global val, w, spd_fig, g_fig, g_canvas, top
+    global val, w, g_fig, g_canvas, top
     #root = tk.Tk()
     root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = os.path.realpath('..')+'/ev-bosch/GUI/icon.png'))
     test_GUI_support.set_Tk_var()
     init_textVar()
     top = GUI (root)
-
+    
     test_GUI_support.init(root, top)
 
     g_fig[0], g_canvas[0] = create_fig(top.TNotebook1_t1_8)
     g_fig[1], g_canvas[1] = create_fig(top.TNotebook1_t2_9)
-    
-    logo = tk.PhotoImage(file= os.path.realpath('..')+'/ev-bosch/GUI/logo.png')
-    logo_label = tk.Label(root, image = logo)
-    logo_label.configure(background = "#d6c7c7")
-    logo_label.place(relx=0.015, rely=0.015) 
     
     return top
 
@@ -82,7 +73,7 @@ def init_textVar():
 
 def create_fig(parent):
     fig = Figure(dpi=100)
-    fig.add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(0, 0, color = 'r')
+    fig.add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(0, 0, color = 'r')
     
     canvas = FigureCanvasTkAgg(fig, master=parent)  # A tk.DrawingArea.
     canvas.draw()
@@ -93,39 +84,31 @@ def create_fig(parent):
     
     return fig, canvas
 
-def GUI_callback(new_data, time):
-    global data_rcv_cnt, time_data
-    
-    data_rcv_cnt[0] = data_rcv_cnt[0] + 1
-    data_rcv_cnt[1] = data_rcv_cnt[1] + 1
-
-    if(data_rcv_cnt[0] == 5):
-        data_rcv_cnt[0] = 0
-        update_data(new_data)
-        
-    if(data_rcv_cnt[1] == 20):
-        data_rcv_cnt[1] = 0
-        time_data.append(time)
-        update_fig(new_data)
-
-def update_data(new_data):
+def callback_updateData(new_data, time):
     # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
-    global spd_data, trq_data, time_data, time, var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq 
+    global data_rcv_cnt, time_data, spd_data, trq_data, time_data, var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq 
     
+    data_rcv_cnt = data_rcv_cnt + 1
+
     var_en_Accel.set(new_data[1])#dummy
     var_en_Brk.set(new_data[3])
     var_en_VehSpd.set(new_data[0])
     var_en_Trq.set(new_data[4]) #dummy
 
+    if(data_rcv_cnt == 10):
+        data_rcv_cnt = 0      
+        spd_data.append(new_data[0])
+        trq_data.append(new_data[3])
+        time_data.append(time)
 
-def update_fig(new_data):
-    spd_data.append(new_data[0])
-    trq_data.append(new_data[3])#dummy
     
-    g_fig[0].add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
+def update_fig():
+    global g_fig, g_canvas
+    
+    g_fig[0].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
     g_canvas[0].draw()
     
-    g_fig[1].add_subplot(111, ylim = ([0,255]), xlim = ([0,100])).plot(time_data, trq_data, color = 'r')
+    g_fig[1].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, trq_data, color = 'r')
     g_canvas[1].draw()
 
 def send_can_cmd():
@@ -596,8 +579,4 @@ class GUI:
 
 if __name__ == '__main__':
     vp_start_gui()
-
-
-
-
 
