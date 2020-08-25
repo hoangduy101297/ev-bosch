@@ -2,7 +2,7 @@
 #Import Packages
 #######################################################################
 import time
-import can
+#import can
 import sys
 import json
 import kafka
@@ -14,11 +14,6 @@ from threading import Thread
 #######################################################################
 #Timerate to publish MQTT and Kafka
 COM_PUBLISH_RATE = 0.5 #500ms
-
-#Assign main thread and side threads
-MAIN_THREAD = CAN_Thread
-THREAD_1 = COM_Publish_Thread
-THREAD_2 = MQTT_Listen_Thread
 
 #Kafka constant
 KAFKA_HOST = "xvc-bosch.westus.cloudapp.azure.com"
@@ -35,8 +30,8 @@ CAN_CHANNEL = 'can0'
 #######################################################################
 #Declare Global Obj/ Var
 #######################################################################
-thread1 = None
-thread2 = None
+COM_Publish = None
+MQTT_Listen = None
 
 canBus = None
 
@@ -50,47 +45,45 @@ mqttClient = None
 #Define Threads
 #RPi 3 can run up to 4 threads
 #######################################################################
-def CAN_Thread():
+
 #Read and proceed CAN data
-    pass
-
-def COM_Publish_Thread():
+def CAN_Thread():
+    while True:
+        print("CAN_thread")
+        time.sleep(0.1)
+        
+        
 #Publish Kafka and MQTT
-    time.sleep(COM_PUBLISH_RATE)
+def COM_Publish_Thread():
+    while True:
+        print("COM_thread")
+        time.sleep(COM_PUBLISH_RATE)
 
-def MQTT_Listen_Thread():
+
 #Listen MQTT message from Mobile, for Setting speed limit
-    pass
+def MQTT_Listen_Thread():
+    while True:
+        print("MQTT_thread")
+        time.sleep(1)
 
 
 #######################################################################
 #Define Main Thread, just assign above thread into main thread
 #######################################################################
 def main_Thread():
-	if MAIN_THREAD == CAN_Thread:
-		while True:
-			CAN_Thread()
-	elif MAIN_THREAD == COM_Publish_Thread:
-		while True:
-			COM_Publish_Thread()
-	else: 
-		while True:
-			MQTT_Listen_Thread()
-
-
+    CAN_Thread()
 
 #######################################################################
 #Define Internal functions
 #######################################################################
 def init():
 #Set up all objects
-    global thread1, thread2, canBus, kafkaProducer
+    global COM_Publish, MQTT_Listen, canBus, kafkaProducer
     
     #Init side Threads
-    thread1 = Thread(target = THREAD_1)
-    thread2 = Thread(target = THREAD_2)
+    COM_Publish = Thread(target = COM_Publish_Thread)
+    MQTT_Listen = Thread(target = MQTT_Listen_Thread)
     
-    CAN.setDaemon(True)
     COM_Publish.setDaemon(True)
     MQTT_Listen.setDaemon(True)
 
@@ -105,11 +98,11 @@ def init():
 
 def init_End():
 #Start all processes
-	global thread1, thread2
+	global COM_Publish, MQTT_Listen
 
 	#Start side Threads
-	thread1.start()
-	thread2.start()
+	COM_Publish.start()
+	MQTT_Listen.start()
 
 
 if __name__ == "__main__":
