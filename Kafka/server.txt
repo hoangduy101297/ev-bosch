@@ -1,0 +1,4 @@
+VSK public Kafka broker information:
+Host: http://xvc-bosch.westus.cloudapp.azure.com
+Port: 9092
+Topic: vsk-topic
