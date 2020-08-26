@@ -6,11 +6,12 @@ import time
 import sys
 import json
 import kafka
+import my_can_lib
 from threading import Thread
 
 
 #######################################################################
-#Define Global constant
+#Define Global configuration
 #######################################################################
 #Timerate to publish MQTT and Kafka
 COM_PUBLISH_RATE = 0.5 #500ms
@@ -27,8 +28,40 @@ MQTT_PORT = 1883
 CAN_BITRATE = 500000
 CAN_CHANNEL = 'can0'
 
+CAN_ID = {
+    'VCU1': 18,
+    'VCU2': 19,
+    'INVERTER': 21,
+    'ABS': 100,
+    'PI': 101,
+    'RADAR': 102, 
+}
+
+
 #######################################################################
-#Declare Global Obj/ Var
+#Declare Global Var
+#######################################################################
+global_data = {
+    'FR_SPD': 0,
+    'RR_SPD': 0,
+    'BRK': 0,
+    'APP': 0,
+    'UBAT': 0,
+    'ERR': 'No error'
+}
+
+global_lock = {
+    'VCU1': 0,
+    'VCU2': 0,
+    'INVERTER': 0,
+    'ABS': 0,
+    'PI': 0,
+    'RADAR': 0,
+}
+
+
+#######################################################################
+#Declare Global Obj
 #######################################################################
 COM_Publish = None
 MQTT_Listen = None
@@ -38,8 +71,7 @@ canBus = None
 kafkaProducer = None
 mqttClient = None
 
-#######################################################################
-#######################################################################
+
 
 #######################################################################
 #Define Threads
@@ -48,9 +80,17 @@ mqttClient = None
 
 #Read and proceed CAN data
 def CAN_Thread():
+    global global_data
+    
     while True:
-        print("CAN_thread")
-        time.sleep(0.1)
+        rcv_msg = canBus.recv(timeout = None)
+        
+        CAN_src = getCanSource(rcv_msg.arbitration_id)
+        
+        if CAN_src != 0:
+            setLock(CAN_src)
+            my_can_lib.UpdateDataFromCan(global_data, CAN_src, rcv_msg.data)
+            resetLock(CAN_src)
         
         
 #Publish Kafka and MQTT
@@ -76,8 +116,9 @@ def main_Thread():
 #######################################################################
 #Define Internal functions
 #######################################################################
-def init():
+    
 #Set up all objects
+def init():
     global COM_Publish, MQTT_Listen, canBus, kafkaProducer
     
     #Init side Threads
@@ -96,15 +137,39 @@ def init():
     #Init MQTT
 
 
-def init_End():
 #Start all processes
-	global COM_Publish, MQTT_Listen
+def init_End():
+    global COM_Publish, MQTT_Listen
 
-	#Start side Threads
-	COM_Publish.start()
-	MQTT_Listen.start()
+    #Start side Threads
+    COM_Publish.start()
+    MQTT_Listen.start()
 
 
+#Set and reset global lock for data consistency
+def setLock(lockName):
+    global global_lock
+    global_lock[lockName] = 1
+    
+def resetLock(lockName):
+    global global_lock
+    global_lock[lockName] = 0    
+
+#get status of global Lock 
+def getLock(lockName):
+    return global_lock[lockName]
+
+
+#Return Key of the val in a dictionary
+def getCanSource(val):
+    for key, value in CAN_ID:
+        if val == value:
+            return key
+        return 0
+
+#######################################################################
+#Main Program Flow
+#######################################################################
 if __name__ == "__main__":
 	#Initialize stuff
 	init()
