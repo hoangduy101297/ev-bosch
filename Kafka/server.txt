@@ -2,3 +2,30 @@ VSK public Kafka broker information:
 Host: http://xvc-bosch.westus.cloudapp.azure.com
 Port: 9092
 Topic: vsk-topic
+
+
+{
+  "action": "TEST_DATA", -> fixed
+  "timestamp": "1597911501833", 
+  "macId": "d037456fab5d ",-> fixed
+  "timeZone": "GMT+7:00",-> fixed
+  "dataType": "PI", -> fixed
+  "data": {
+    "point": [
+      {
+        "type": "PI",-> fixed
+        "speed_limit": 100, 
+        "battery_status": 10, 
+        "front_wh_speed": 22, 
+        "rear_wh_speed": 20, 
+        "odo_meter": 10, 
+        "battery_voltage": 10, 
+        "battery_current": 9,
+        "error_message": "error1",
+        "front_break": 1, 
+        "rear_break": 0, 
+        "outrigger_detection": 1
+      }
+    ]
+  }
+}
