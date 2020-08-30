@@ -162,10 +162,10 @@ def getLock(lockName):
 
 #Return Key of the val in a dictionary
 def getCanSource(val):
-    for key, value in CAN_ID:
+    for key, value in CAN_ID.items():
         if val == value:
             return key
-        return 0
+    return 0
 
 #######################################################################
 #Main Program Flow
