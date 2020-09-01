@@ -32,7 +32,7 @@ KAFKA_SEND_TOPIC = "vsk-topic"
 MQTT_HOST = "xvc-bosch.westus.cloudapp.azure.com"
 MQTT_PORT = 1883
 MQTT_SEND_TOPIC = "mobile-topic"
-MQTT_RECV_TOPIC = "TBD"
+MQTT_RECV_TOPIC = "mobileToPi-topic"
 
 
 #CAN constant
@@ -259,7 +259,7 @@ def mqtt_on_connect(client, userdata, flags, rc):
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
-    mqttClient.subscribe("mobile-topic")
+    mqttClient.subscribe(MQTT_RECV_TOPIC)
 
 ######################################################################
 #																	 #
