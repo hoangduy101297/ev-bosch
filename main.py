@@ -2,7 +2,7 @@
 #Import Packages
 #######################################################################
 import time
-#import can
+import can
 import sys
 import json
 import kafka
@@ -134,10 +134,10 @@ def CAN_Thread():
         
 #Publish Kafka and MQTT
 def COM_Publish_Thread():
-	global mqttClient, kafkaProducer
+    global mqttClient, kafkaProducer
 
-	#After start-up, we should wait some times before starting sending Kafka and MQTT
-	time.sleep(RESET_DELAY_TIME)
+    #After start-up, we should wait some times before starting sending Kafka and MQTT
+    time.sleep(RESET_DELAY_TIME)
 
     while True:
     	kafka_send_data, mobile_send_data = updatePayload()
@@ -157,7 +157,7 @@ def COM_Publish_Thread():
 
 #Listen MQTT message from Mobile, for Setting speed limit
 def MQTT_Listen_Thread():
-	global mqttClient
+    global mqttClient
     mqttClient.loop_forever()
 
 
@@ -193,16 +193,16 @@ def getCanSource(val):
 
 #Update CAN data to global_data
 def updateDataFromCan(src, data):
-	global global_data
+    global global_data
     for x in CAN_pos[src]:
         global_data[x] = data[CAN_pos[src][x]]
 
 #Update data from global_data to Kafka and MQTT payload
 def updatePayload():
-	#Currently not implement the Global Lock, data may be inconsistent in some case
-	#while getGlobalLock():
-		#pass
-   	current_milli_time = int(round(time.time() * 1000))
+    #Currently not implement the Global Lock, data may be inconsistent in some case
+    #while getGlobalLock():
+    #pass
+    current_milli_time = int(round(time.time() * 1000))
     kafka_data = {
         "action": "TEST_DATA",
         "timestamp": "%d" %(current_milli_time),
@@ -282,7 +282,7 @@ def init():
     MQTT_Listen.setDaemon(True)
 
     #Init CAN bus
-    canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
+    #canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
 
     #Init Kafka
     kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
@@ -306,8 +306,9 @@ def init_End():
 #Define Main Thread, just assign above thread into main thread
 #######################################################################
 def main_Thread():
+    #while True:
     CAN_Thread()
-
+        #pass
 
 #######################################################################
 #Main Program Flow
