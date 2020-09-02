@@ -10,6 +10,7 @@ from threading import Thread
 import random #used for testing, remove in final version
 import paho.mqtt.client as mqtt
 from kafka import KafkaProducer
+from my_can_lib import *
 
 ######################################################################
 #																	 #
@@ -40,37 +41,16 @@ CAN_BITRATE = 500000
 CAN_CHANNEL = 'can0'
 
 CAN_ID = {
-    'VCU1': 18,
-    'VCU2': 19,
-    'INVERTER': 21,
+    'VCU1': 21,
+    'VCU2': 22,
+    'IVT1': 35,
+    'IVT2': 36,
+    'CoreLoad0':24,
+    'CoreLoad1':25,
+    'CoreLoad2':26,
     'ABS': 100,
     'PI': 101,
-    'RADAR': 102, 
-}
-
-#Data position in CAN frame
-CAN_pos = {
-    'VCU1':{
-        'spd':0,
-        'brk':1
-    },
-    
-    'VCU2':{
-        'ubat':0,
-        'app':1
-    },
-    
-    'INVERTER':{
-    },
-    
-    'ABS':{
-    },
-    
-    'PI':{
-    },
-    
-    'RADAR':{
-    }
+    'RADAR': 102
 }
 
 
@@ -113,7 +93,6 @@ canBus = None
 kafkaProducer = None
 mqttClient = None
 
-
 #######################################################################
 #Define Threads
 #RPi 3 can run up to 4 threads
@@ -123,13 +102,7 @@ mqttClient = None
 def CAN_Thread():
     while True:
         rcv_msg = canBus.recv(timeout = None)
-        
-        CAN_src = getCanSource(rcv_msg.arbitration_id)
-        
-        if CAN_src != 0:
-            setGlobalLock()
-            updateDataFromCan(CAN_src, rcv_msg.data)
-            resetGlobalLock()
+        updateDataFromCan(rcv_msg)
         
         
 #Publish Kafka and MQTT
@@ -142,14 +115,14 @@ def COM_Publish_Thread():
     while True:
     	kafka_send_data, mobile_send_data = updatePayload()
 
-        try:
+    	try:
             mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
-        except:
+    	except:
             pass
 
-        try:
+    	try:
             kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
-        except:
+    	except:
             pass
 
         time.sleep(COM_PUBLISH_RATE)
@@ -192,11 +165,28 @@ def getCanSource(val):
     return 0
 
 #Update CAN data to global_data
-def updateDataFromCan(src, data):
+def updateDataFromCan(msg):
     global global_data
-    for x in CAN_pos[src]:
-        global_data[x] = data[CAN_pos[src][x]]
 
+    if msg.arbitration_id == CAN_ID['VCU1']:
+    	updateDataVCU1()
+    elif msg.arbitration_id == CAN_ID['VCU2']:
+    	updateDataVCU2()
+    elif msg.arbitration_id == CAN_ID['IVT1']:
+    	updateDataIvt1()
+    elif msg.arbitration_id == CAN_ID['CoreLoad0']:
+    	updateDataCoreLoad0()
+    elif msg.arbitration_id == CAN_ID['CoreLoad1']:
+    	updateDataCoreLoad1()
+    elif msg.arbitration_id == CAN_ID['CoreLoad2']:
+    	updateDataCoreLoad2()
+    elif msg.arbitration_id == CAN_ID['ABS']:
+    	updateDataAbs() 	
+    elif msg.arbitration_id == CAN_ID['RADAR']:
+    	updateDataRadar()
+    else:
+        pass 	
+    
 #Update data from global_data to Kafka and MQTT payload
 def updatePayload():
     #Currently not implement the Global Lock, data may be inconsistent in some case
@@ -239,8 +229,8 @@ def updatePayload():
         "odoMeter": global_data["odo_meter"],
         "voltage": global_data["battery_voltage"],
         "ampere": global_data["battery_current"],
-        "frontBrakeStatus": True if global_data["front_break"] == 1 else False,
-        "rearBrakeStatus": True if global_data["rear_break"] == 1 else False,
+        "frontBrakeStatus": global_data["front_break"], ,
+        "rearBrakeStatus": global_data["rear_break"], ,
         }
 
     return kafka_data, mobile_data
@@ -306,9 +296,7 @@ def init_End():
 #Define Main Thread, just assign above thread into main thread
 #######################################################################
 def main_Thread():
-    #while True:
     CAN_Thread()
-        #pass
 
 #######################################################################
 #Main Program Flow
