@@ -6,66 +6,81 @@ import time
 import sys
 import json
 import kafka
-import my_can_lib
+import psutil
 from threading import Thread
 import random #used for testing, remove in final version
 import paho.mqtt.client as mqtt
 from kafka import KafkaProducer
+from my_can_lib import *
 
+######################################################################
+#																	 #
+#					  	   Configuration 					         #
+#																	 #
+######################################################################
+#Timerate to publish MQTT and Kafka. MIN 1s
+COM_PUBLISH_RATE = 0.7 #700ms
 
-#######################################################################
-#Define Global configuration
-#######################################################################
-#Timerate to publish MQTT and Kafka
-COM_PUBLISH_RATE = 0.5 #500ms
-
-#MAC address to publish Kafka
-KAFKA_MAC = "d037456fab5d"
-
-#Data type to publish Kafka
-KAFKA_DATA_TYPE = "PI"
+#Time delay to publish COM after reset
+RESET_DELAY_TIME = 1 #1s
 
 #Kafka constant
 KAFKA_HOST = "xvc-bosch.westus.cloudapp.azure.com"
 KAFKA_PORT = 9092
+KAFKA_MACID = "d037456fab5d"
+KAFKA_SEND_TOPIC = "vsk-topic"
 
 #Mqtt constant
 MQTT_HOST = "xvc-bosch.westus.cloudapp.azure.com"
 MQTT_PORT = 1883
+MQTT_SEND_TOPIC = "mobile-topic"
+MQTT_RECV_TOPIC = "mobileToPi-topic"
+
 
 #CAN constant
 CAN_BITRATE = 500000
 CAN_CHANNEL = 'can0'
 
 CAN_ID = {
-    'VCU1': 18,
-    'VCU2': 19,
-    'INVERTER': 21,
+    'VCU1': 21,
+    'VCU2': 22,
+    'IVT1': 35,
+    'IVT2': 36,
+    'CoreLoad0':24,
+    'CoreLoad1':25,
+    'CoreLoad2':26,
     'ABS': 100,
     'PI': 101,
-    'RADAR': 102, 
+    'RADAR': 102
 }
 
+
+######################################################################
+#																	 #
+#					  	   Implementation 					         #
+#																	 #
+######################################################################
 
 #######################################################################
 #Declare Global Var
 #######################################################################
+global_lock = 0
 global_data = {
-    'FR_SPD': 0,
-    'RR_SPD': 0,
-    'BRK': 0,
-    'APP': 0,
-    'UBAT': 0,
-    'ERR': 'No error'
-}
-
-global_lock = {
-    'VCU1': 0,
-    'VCU2': 0,
-    'INVERTER': 0,
-    'ABS': 0,
-    'PI': 0,
-    'RADAR': 0,
+    "speed_limit": 0, 
+    "battery_status": 0, 
+    "front_wh_speed": 0, 
+    "rear_wh_speed": 0, 
+    "odo_meter": 0, 
+    "battery_voltage": 0, 
+    "battery_current": 0,
+    "error_message": "no error",
+    "front_break": 0, 
+    "rear_break": 0, 
+    "outrigger_detection": 0,
+    "core0_load": 0,
+    "core1_load": 0,
+    "core2_load": 0,
+    "trafficSign": 0,
 }
 
 
@@ -80,8 +95,6 @@ canBus = None
 kafkaProducer = None
 mqttClient = None
 
-client1 = None
-
 #######################################################################
 #Define Threads
 #RPi 3 can run up to 4 threads
@@ -89,158 +102,61 @@ client1 = None
 
 #Read and proceed CAN data
 def CAN_Thread():
-    global global_data
-    
     while True:
         rcv_msg = canBus.recv(timeout = None)
-        
-        CAN_src = getCanSource(rcv_msg.arbitration_id)
-        
-        if CAN_src != 0:
-            setLock(CAN_src)
-            my_can_lib.UpdateDataFromCan(global_data, CAN_src, rcv_msg.data)
-            resetLock(CAN_src)
+        updateDataFromCan(rcv_msg)
         
         
 #Publish Kafka and MQTT
 def COM_Publish_Thread():
-    #get data from CAN
-    
-    while True:     
-        #Dummy data
-        speed_limit = 50
-        battery_status = 80
-        front_wh_speed = random.randint(0, speed_limit)
-        rear_wh_speed = front_wh_speed
-        battery_voltage = random.randint(21, 24)
-        battery_current = random.randint(0, 10)
-        front_break = random.randint(0, 1)
-        rear_break = random.randint(0, 1)
-        outrigger_detection = random.randint(0, 1)
-        core0_load = round(random.uniform(4.0, 5.0),1)
-        core1_load = round(random.uniform(24.0, 25.0),1)
-        core2_load = round(random.uniform(0.5, 0.7),1)
-        odo_meter = 0
-        current_milli_time = int(round(time.time() * 1000))
-        kafka_send_data = {
-            "action": "TEST_DATA",
-            "timestamp": "%d" %(current_milli_time),
-            "macId": "%s" %(KAFKA_MAC),
-            "timeZone": "GMT+7:00",
-            "dataType": "%s" %(KAFKA_DATA_TYPE),
-            "data": {
-              "point": [
-              {
-                "type": "%s" %(KAFKA_DATA_TYPE),
-                "speed_limit": speed_limit, 
-                "battery_status": battery_status, 
-                "front_wh_speed": front_wh_speed, 
-                "rear_wh_speed": rear_wh_speed, 
-                "odo_meter": odo_meter, 
-                "battery_voltage": battery_voltage, 
-                "battery_current": battery_current,
-                "error_message": "no error",
-                "front_break": front_break, 
-                "rear_break": rear_break, 
-                "outrigger_detection": outrigger_detection,
-                "core0_load": core0_load,
-                "core1_load": core1_load,
-                "core2_load": core2_load
-              }
-            ]
-          }
-        }
-        mobile_send_data = {
-            "maxSpeed": speed_limit,
-            "batteryPercent": battery_status,
-            "frontWheelSpeed": front_wh_speed,
-            "rearWheelSpeed": rear_wh_speed,
-            "odoMeter": odo_meter,
-            "voltage": battery_voltage,
-            "ampere": battery_current,
-            "frontBrakeStatus": True,
-            "rearBrakeStatus": False,
-            }
-        print("Kafka:\n"+json.dumps(kafka_send_data, indent=2))
-        print("Mobile:\n"+json.dumps(mobile_send_data, indent=2))
+    global mqttClient, kafkaProducer
+
+    #After start-up, we should wait some times before starting sending Kafka and MQTT
+    time.sleep(RESET_DELAY_TIME)
+
+    while True:
+        kafka_send_data, mobile_send_data = updatePayload()
+
         try:
-            kafkaProducer.send('vsk-topic', value=json.dumps(kafka_send_data, indent=2))
-            time.sleep(1)
-        except Exception as ex:
-            print(ex)
+            mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
+        except:
+            pass
+
         try:
-            ret= client1.publish('mobile-topic',json.dumps(mobile_send_data, indent=2))
-        except Exception as ex:
-            print(ex)
-            time.sleep(COM_PUBLISH_RATE)
+            kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
+        except:
+            pass
+        print('Published..')
+        time.sleep(COM_PUBLISH_RATE)
+
 
 #Listen MQTT message from Mobile, for Setting speed limit
 def MQTT_Listen_Thread():
-    while True:
-        # Blocking call that processes network traffic, dispatches callbacks and
-        # handles reconnecting.
-        # Other loop*() functions are available that give a threaded interface and a
-        # manual interface.
-        client1.loop_forever()
+    global mqttClient
+    mqttClient.loop_forever()
+
 
 
 #######################################################################
-#Define Main Thread, just assign above thread into main thread
+#Define useful API
 #######################################################################
-def main_Thread():
-##    CAN_Thread()
-    while True:
-        pass
-
-#######################################################################
-#Define Internal functions
-#######################################################################
-    
-#Set up all objects
-def init():
-    global COM_Publish, MQTT_Listen, canBus, kafkaProducer,client1
-    
-    #Init side Threads
-    COM_Publish = Thread(target = COM_Publish_Thread)
-    MQTT_Listen = Thread(target = MQTT_Listen_Thread)
-    
-    COM_Publish.setDaemon(True)
-    MQTT_Listen.setDaemon(True)
-
-    #Init CAN bus
-##    canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
-
-    #Init Kafka
-    kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
-    
-    #Init MQTT
-    client1= mqtt.Client("control1")
-    client1.on_publish = on_publish
-    client1.on_connect = on_connect
-    client1.on_message = on_message
-    client1.connect(MQTT_HOST,MQTT_PORT,60)
-    
-#Start all processes
-def init_End():
-    global COM_Publish, MQTT_Listen
-
-    #Start side Threads
-    COM_Publish.start()
-    MQTT_Listen.start()
-
 
 #Set and reset global lock for data consistency
-def setLock(lockName):
+# 1: Lock is active
+# 0: Lock is inactive
+def setGlobalLock():
     global global_lock
-    global_lock[lockName] = 1
+    global_lock = 1
     
-def resetLock(lockName):
+def resetGlobalLock():
     global global_lock
-    global_lock[lockName] = 0    
+    global_lock = 0
 
 #get status of global Lock 
-def getLock(lockName):
-    return global_lock[lockName]
+# 1: Lock is active
+# 0: Lock is inactive
+def getGlobalLock():
+    return global_lock
 
 
 #Return Key of the val in a dictionary
@@ -250,24 +166,147 @@ def getCanSource(val):
             return key
     return 0
 
+#Update CAN data to global_data
+def updateDataFromCan(msg):
+    global global_data
+
+    if msg.arbitration_id == CAN_ID['VCU1']:
+    	updateDataVCU1(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['VCU2']:
+    	updateDataVCU2(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['IVT1']:
+    	updateDataIvt1(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['CoreLoad0']:
+    	updateDataCoreLoad0(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['CoreLoad1']:
+    	updateDataCoreLoad1(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['CoreLoad2']:
+    	updateDataCoreLoad2(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['ABS']:
+    	updateDataAbs(msg.data, global_data)
+    elif msg.arbitration_id == CAN_ID['RADAR']:
+    	updateDataRadar(msg.data, global_data)
+    else:
+        pass
+    
+#Update data from global_data to Kafka and MQTT payload
+def updatePayload():
+    #Global Lock implemented to ensure the data consistency
+    while getGlobalLock():
+        continue
+    current_milli_time = int(round(time.time() * 1000))
+    kafka_data = {
+        "action": "TEST_DATA",
+        "timestamp": "%d" %(current_milli_time),
+        "macId": KAFKA_MACID,
+        "timeZone": "GMT+7:00",
+        "dataType": "PI",
+        "data": {
+          "point": [
+          {
+            "type": "PI",
+            "speed_limit": global_data["speed_limit"], 
+            "battery_status": global_data["battery_status"], 
+            "front_wh_speed": global_data["front_wh_speed"], 
+            "rear_wh_speed": global_data["rear_wh_speed"], 
+            "odo_meter": global_data["odo_meter"], 
+            "battery_voltage": global_data["battery_voltage"], 
+            "battery_current": global_data["battery_current"],
+            "error_message": global_data["error_message"],
+            "front_break": global_data["front_break"], 
+            "rear_break": global_data["rear_break"], 
+            "outrigger_detection": 1 if global_data["outrigger_detection"] == 0 else 0,
+            "core0_load": global_data["core0_load"],
+            "core1_load": global_data["core1_load"],
+            "core2_load": global_data["core2_load"],
+            "pi_load": psutil.cpu_percent(),
+            "trafficSign": global_data["trafficSign"]
+          }
+        ]
+      }
+    }
+    mobile_data = {
+        "maxSpeed": global_data["speed_limit"],
+        "batteryPercent": global_data["battery_status"],
+        "frontWheelSpeed": global_data["front_wh_speed"],
+        "rearWheelSpeed": global_data["rear_wh_speed"],
+        "odoMeter": global_data["odo_meter"],
+        "voltage": global_data["battery_voltage"],
+        "ampere": global_data["battery_current"],
+        "frontBrakeStatus": global_data["front_break"],
+        "rearBrakeStatus": global_data["rear_break"],
+        "outrigger_detection": 1 if global_data["outrigger_detection"] == 0 else 0,
+        "core0_load": global_data["core0_load"],
+        "core1_load": global_data["core1_load"],
+        "core2_load": global_data["core2_load"],
+        "pi_load": psutil.cpu_percent(),
+        "trafficSign": global_data["trafficSign"]
+        }
+
+    return kafka_data, mobile_data
+
 #######################################################################
-#Def func for Kafka and MQTT publish
+#MQTT & Kafka callbacks
 #######################################################################
 
-def on_publish(client,userdata,result):             #create function for callback
-    print("data published \n")
-    pass
-def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
+def mqtt_on_message(client, userdata, msg):
+    msg_from_mobile = json.loads(str(msg.payload))
+    global_data["speed_limit"] = msg_from_mobile['maxSpeed']
+
+# The callback for when the client receives a CONNACK response from the server.
+def mqtt_on_connect(client, userdata, flags, rc):
+    global mqttClient
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
-    client.subscribe("mobile-topic")
+    mqttClient.subscribe(MQTT_RECV_TOPIC)
 
-# The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
+######################################################################
+#																	 #
+#					  Hardcode, do not change!!!  					 #
+#																	 #
+######################################################################
+
+#######################################################################
+#Define Init/Ini func
+#######################################################################
+#Set up all objects
+def init():
+    global COM_Publish, MQTT_Listen, canBus, kafkaProducer, mqttClient
     
+    #Init side Threads
+    COM_Publish = Thread(target = COM_Publish_Thread)
+    MQTT_Listen = Thread(target = MQTT_Listen_Thread)
+    
+    COM_Publish.setDaemon(True)
+    MQTT_Listen.setDaemon(True)
+
+    #Init CAN bus
+    canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
+
+    #Init Kafka
+    kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
+    
+    #Init MQTT
+    mqttClient= mqtt.Client("control1")
+    mqttClient.on_message = mqtt_on_message
+    mqttClient.on_connect = mqtt_on_connect
+    mqttClient.connect(MQTT_HOST,MQTT_PORT)
+
+#Start all processess
+def init_End():
+    global COM_Publish, MQTT_Listen
+
+    #Start side Threads
+    COM_Publish.start()
+    MQTT_Listen.start()
+
+
+#######################################################################
+#Define Main Thread, just assign above thread into main thread
+#######################################################################
+def main_Thread():
+    CAN_Thread()
 
 #######################################################################
 #Main Program Flow
