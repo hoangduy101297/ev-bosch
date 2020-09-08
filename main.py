@@ -2,7 +2,7 @@
 #Import Packages
 #######################################################################
 import time
-#import can
+import can
 import sys
 import json
 import kafka
@@ -126,7 +126,6 @@ def COM_Publish_Thread():
             kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
         except:
             pass
-        print('Published..')
         time.sleep(COM_PUBLISH_RATE)
 
 
@@ -282,7 +281,7 @@ def init():
     MQTT_Listen.setDaemon(True)
 
     #Init CAN bus
-    canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
+    #canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
 
     #Init Kafka
     kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
@@ -306,7 +305,9 @@ def init_End():
 #Define Main Thread, just assign above thread into main thread
 #######################################################################
 def main_Thread():
-    CAN_Thread()
+    #CAN_Thread()
+    while True:
+        pass
 
 #######################################################################
 #Main Program Flow
