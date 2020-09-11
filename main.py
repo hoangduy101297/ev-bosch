@@ -81,9 +81,10 @@ global_data = {
     "core1_load": 0,
     "core2_load": 0,
     "trafficSign": 0,
+    "msgSrc": "VSK"
 }
 
-
+error_msg_cnt = 0
 #######################################################################
 #Declare Global Obj
 #######################################################################
@@ -109,13 +110,20 @@ def CAN_Thread():
         
 #Publish Kafka and MQTT
 def COM_Publish_Thread():
-    global mqttClient, kafkaProducer
+    global mqttClient, kafkaProducer, error_msg_cnt, global_data
 
     #After start-up, we should wait some times before starting sending Kafka and MQTT
     time.sleep(RESET_DELAY_TIME)
 
     while True:
         kafka_send_data, mobile_send_data = updatePayload()
+
+        #Error message only last for 5s
+        if global_data['error_message'] != 'no error':
+            error_msg_cnt = error_msg_cnt + 1
+            if(error_msg_cnt > 5):
+                global_data['error_message'] = 'no error'
+                error_msg_cnt = 0
 
         try:
             mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
@@ -249,8 +257,29 @@ def updatePayload():
 #######################################################################
 
 def mqtt_on_message(client, userdata, msg):
-    msg_from_mobile = json.loads(str(msg.payload))
-    global_data["speed_limit"] = msg_from_mobile['maxSpeed']
+    global mqttClient, global_data
+    recv_msg = json.loads(str(msg.payload))
+    
+    #Mobile device have the highest priority
+    if recv_msg['dev_ID'] == "mobile":
+        global_data["msgSrc"] = "mobile"
+        global_data["speed_limit"] = recv_msg ['maxSpeed']
+        send_back_msg = {
+            "maxSpeed": global_data["speed_limit"]
+        }
+        mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
+    elif recv_msg['dev_ID'] == "VSK":
+        if (global_data["msgSrc"] == "mobile" and global_data["speed_limit"] == 0) or global_data["msgSrc"] == "VSK":
+            global_data["speed_limit"] = recv_msg ['maxSpeed']
+            global_data["msgSrc"] = "VSK"
+            send_back_msg = {
+                "maxSpeed": global_data["speed_limit"]
+            }
+            mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
+        else:
+            global_data['error_message'] = "SpeedLimit is being controlled by Mobile, cannot set from VSK"
+    #REMOVE in final version
+    print('Current Speed Limit: ', global_data["speed_limit"])
 
 # The callback for when the client receives a CONNACK response from the server.
 def mqtt_on_connect(client, userdata, flags, rc):
