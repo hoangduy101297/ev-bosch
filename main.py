@@ -41,19 +41,52 @@ MQTT_RECV_TOPIC = "mobileToPi-topic"
 CAN_BITRATE = 500000
 CAN_CHANNEL = 'can0'
 
-CAN_ID = {
-    'VCU1': 21,
-    'VCU2': 22,
-    'IVT1': 35,
-    'IVT2': 36,
-    'CoreLoad0':24,
-    'CoreLoad1':25,
-    'CoreLoad2':26,
-    'ABS': 100,
-    'PI': 101,
-    'RADAR': 102
+CAN = {
+    'VCU1':{
+        'id':21,
+        'func': updateDataVCU1
+     },
+    'VCU2':{
+        'id':22,
+        'func': updateDataVCU2
+     },
+    'IVT1':{
+        'id':35,
+        'func': updateDataIVT1
+     },
+    'IVT2':{
+        'id':36,
+        'func': updateDataIVT2
+     },
+    'CoreLoad0':{
+        'id':24,
+        'func': updateDatacCoreLoad0
+     },
+    'CoreLoad1':{
+        'id':25,
+        'func': updateDataCoreload1
+     },
+    'CoreLoad2':{
+        'id':26,
+        'func': updateDataCoreLoad2
+     },
+    'ABS':{
+        'id':100,
+        'func': updateDataABS
+     },
+    'PI1':{
+        'id':101
+        'func': updateDataPI1
+     },
+    'PI2':{
+        'id':102,
+        'func': updateDataPI2
+     },
+    'RADAR':{
+        'id':103,
+        'func': updateDataRADAR
+     }
 }
-
 
 ######################################################################
 #																	 #
@@ -110,20 +143,19 @@ def CAN_Thread():
         
 #Publish Kafka and MQTT
 def COM_Publish_Thread():
-    global mqttClient, kafkaProducer, error_msg_cnt, global_data
+    global mqttClient, kafkaProducer
 
     #After start-up, we should wait some times before starting sending Kafka and MQTT
     time.sleep(RESET_DELAY_TIME)
 
+    #Reset Speed limit to 0, send to VSK/Mobile
+    mqtt_msg = {
+            "maxSpeed": 0
+        }
+        mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(mqtt_msg, indent=2), retain = True)
+
     while True:
         kafka_send_data, mobile_send_data = updatePayload()
-
-        #Error message only last for 5s
-        if global_data['error_message'] != 'no error':
-            error_msg_cnt = error_msg_cnt + 1
-            if(error_msg_cnt > 5):
-                global_data['error_message'] = 'no error'
-                error_msg_cnt = 0
 
         try:
             mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
@@ -165,11 +197,10 @@ def resetGlobalLock():
 def getGlobalLock():
     return global_lock
 
-
 #Return Key of the val in a dictionary
 def getCanSource(val):
     for key, value in CAN_ID.items():
-        if val == value:
+        if val == value['id']:
             return key
     return 0
 
@@ -177,30 +208,22 @@ def getCanSource(val):
 def updateDataFromCan(msg):
     global global_data
 
-    if msg.arbitration_id == CAN_ID['VCU1']:
-    	updateDataVCU1(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['VCU2']:
-    	updateDataVCU2(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['IVT1']:
-    	updateDataIvt1(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['CoreLoad0']:
-    	updateDataCoreLoad0(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['CoreLoad1']:
-    	updateDataCoreLoad1(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['CoreLoad2']:
-    	updateDataCoreLoad2(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['ABS']:
-    	updateDataAbs(msg.data, global_data)
-    elif msg.arbitration_id == CAN_ID['RADAR']:
-    	updateDataRadar(msg.data, global_data)
-    else:
-        pass
+    for key, can_properties in CAN.items():
+        if msg.arbitration_id == can_properties['id']:
+            can_properties['func'](msg.data, global_data)
+            break
     
 #Update data from global_data to Kafka and MQTT payload
 def updatePayload():
-    #Global Lock implemented to ensure the data consistency
-    while getGlobalLock():
-        continue
+    global global_data, error_msg_cnt
+    
+    #Error message is only sent 5 times
+    if global_data['error_message'] != 'no error':
+        error_msg_cnt = error_msg_cnt + 1
+        if(error_msg_cnt > 5):
+            global_data['error_message'] = 'no error'
+            error_msg_cnt = 0
+    
     current_milli_time = int(round(time.time() * 1000))
     kafka_data = {
         "action": "TEST_DATA",
@@ -222,7 +245,7 @@ def updatePayload():
             "error_message": global_data["error_message"],
             "front_break": global_data["front_break"], 
             "rear_break": global_data["rear_break"], 
-            "outrigger_detection": 1 if global_data["outrigger_detection"] == 0 else 0,
+            "outrigger_detection": global_data["outrigger_detection"],
             "core0_load": global_data["core0_load"],
             "core1_load": global_data["core1_load"],
             "core2_load": global_data["core2_load"],
@@ -242,7 +265,7 @@ def updatePayload():
         "ampere": global_data["battery_current"],
         "frontBrakeStatus": global_data["front_break"],
         "rearBrakeStatus": global_data["rear_break"],
-        "outrigger_detection": 1 if global_data["outrigger_detection"] == 0 else 0,
+        "outrigger_detection": global_data["outrigger_detection"]
         "core0_load": global_data["core0_load"],
         "core1_load": global_data["core1_load"],
         "core2_load": global_data["core2_load"],
@@ -288,6 +311,7 @@ def mqtt_on_connect(client, userdata, flags, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
     mqttClient.subscribe(MQTT_RECV_TOPIC)
+    
 
 ######################################################################
 #																	 #
