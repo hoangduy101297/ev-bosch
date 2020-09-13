@@ -6,6 +6,7 @@ import can
 import sys
 import json
 import kafka
+import psutil
 from threading import Thread
 import random #used for testing, remove in final version
 import paho.mqtt.client as mqtt
@@ -18,10 +19,10 @@ from my_can_lib import *
 #																	 #
 ######################################################################
 #Timerate to publish MQTT and Kafka. MIN 1s
-COM_PUBLISH_RATE = 1 #1s
+COM_PUBLISH_RATE = 0.7 #700ms
 
 #Time delay to publish COM after reset
-RESET_DELAY_TIME = 3 #3s
+RESET_DELAY_TIME = 1 #1s
 
 #Kafka constant
 KAFKA_HOST = "xvc-bosch.westus.cloudapp.azure.com"
@@ -40,19 +41,52 @@ MQTT_RECV_TOPIC = "mobileToPi-topic"
 CAN_BITRATE = 500000
 CAN_CHANNEL = 'can0'
 
-CAN_ID = {
-    'VCU1': 21,
-    'VCU2': 22,
-    'IVT1': 35,
-    'IVT2': 36,
-    'CoreLoad0':24,
-    'CoreLoad1':25,
-    'CoreLoad2':26,
-    'ABS': 100,
-    'PI': 101,
-    'RADAR': 102
+CAN = {
+    'VCU1':{
+        'id':21,
+        'func': updateDataVCU1
+     },
+    'VCU2':{
+        'id':22,
+        'func': updateDataVCU2
+     },
+    'IVT1':{
+        'id':35,
+        'func': updateDataIVT1
+     },
+    'IVT2':{
+        'id':36,
+        'func': updateDataIVT2
+     },
+    'CoreLoad0':{
+        'id':24,
+        'func': updateDatacCoreLoad0
+     },
+    'CoreLoad1':{
+        'id':25,
+        'func': updateDataCoreload1
+     },
+    'CoreLoad2':{
+        'id':26,
+        'func': updateDataCoreLoad2
+     },
+    'ABS':{
+        'id':100,
+        'func': updateDataABS
+     },
+    'PI1':{
+        'id':101
+        'func': updateDataPI1
+     },
+    'PI2':{
+        'id':102,
+        'func': updateDataPI2
+     },
+    'RADAR':{
+        'id':103,
+        'func': updateDataRADAR
+     }
 }
-
 
 ######################################################################
 #																	 #
@@ -79,9 +113,11 @@ global_data = {
     "core0_load": 0,
     "core1_load": 0,
     "core2_load": 0,
+    "trafficSign": 0,
+    "msgSrc": "VSK"
 }
 
-
+error_msg_cnt = 0
 #######################################################################
 #Declare Global Obj
 #######################################################################
@@ -112,19 +148,24 @@ def COM_Publish_Thread():
     #After start-up, we should wait some times before starting sending Kafka and MQTT
     time.sleep(RESET_DELAY_TIME)
 
+    #Reset Speed limit to 0, send to VSK/Mobile
+    mqtt_msg = {
+            "maxSpeed": 0
+        }
+        mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(mqtt_msg, indent=2), retain = True)
+
     while True:
-    	kafka_send_data, mobile_send_data = updatePayload()
+        kafka_send_data, mobile_send_data = updatePayload()
 
-    	try:
+        try:
             mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
-    	except:
+        except:
             pass
 
-    	try:
+        try:
             kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
-    	except:
+        except:
             pass
-
         time.sleep(COM_PUBLISH_RATE)
 
 
@@ -148,7 +189,7 @@ def setGlobalLock():
     
 def resetGlobalLock():
     global global_lock
-    global_lock = 0    
+    global_lock = 0
 
 #get status of global Lock 
 # 1: Lock is active
@@ -156,11 +197,10 @@ def resetGlobalLock():
 def getGlobalLock():
     return global_lock
 
-
 #Return Key of the val in a dictionary
 def getCanSource(val):
     for key, value in CAN_ID.items():
-        if val == value:
+        if val == value['id']:
             return key
     return 0
 
@@ -168,30 +208,22 @@ def getCanSource(val):
 def updateDataFromCan(msg):
     global global_data
 
-    if msg.arbitration_id == CAN_ID['VCU1']:
-    	updateDataVCU1()
-    elif msg.arbitration_id == CAN_ID['VCU2']:
-    	updateDataVCU2()
-    elif msg.arbitration_id == CAN_ID['IVT1']:
-    	updateDataIvt1()
-    elif msg.arbitration_id == CAN_ID['CoreLoad0']:
-    	updateDataCoreLoad0()
-    elif msg.arbitration_id == CAN_ID['CoreLoad1']:
-    	updateDataCoreLoad1()
-    elif msg.arbitration_id == CAN_ID['CoreLoad2']:
-    	updateDataCoreLoad2()
-    elif msg.arbitration_id == CAN_ID['ABS']:
-    	updateDataAbs() 	
-    elif msg.arbitration_id == CAN_ID['RADAR']:
-    	updateDataRadar()
-    else:
-        pass 	
+    for key, can_properties in CAN.items():
+        if msg.arbitration_id == can_properties['id']:
+            can_properties['func'](msg.data, global_data)
+            break
     
 #Update data from global_data to Kafka and MQTT payload
 def updatePayload():
-    #Currently not implement the Global Lock, data may be inconsistent in some case
-    #while getGlobalLock():
-    #pass
+    global global_data, error_msg_cnt
+    
+    #Error message is only sent 5 times
+    if global_data['error_message'] != 'no error':
+        error_msg_cnt = error_msg_cnt + 1
+        if(error_msg_cnt > 5):
+            global_data['error_message'] = 'no error'
+            error_msg_cnt = 0
+    
     current_milli_time = int(round(time.time() * 1000))
     kafka_data = {
         "action": "TEST_DATA",
@@ -216,7 +248,9 @@ def updatePayload():
             "outrigger_detection": global_data["outrigger_detection"],
             "core0_load": global_data["core0_load"],
             "core1_load": global_data["core1_load"],
-            "core2_load": global_data["core2_load"]
+            "core2_load": global_data["core2_load"],
+            "pi_load": psutil.cpu_percent(),
+            "trafficSign": global_data["trafficSign"]
           }
         ]
       }
@@ -229,8 +263,14 @@ def updatePayload():
         "odoMeter": global_data["odo_meter"],
         "voltage": global_data["battery_voltage"],
         "ampere": global_data["battery_current"],
-        "frontBrakeStatus": global_data["front_break"], ,
-        "rearBrakeStatus": global_data["rear_break"], ,
+        "frontBrakeStatus": global_data["front_break"],
+        "rearBrakeStatus": global_data["rear_break"],
+        "outrigger_detection": global_data["outrigger_detection"]
+        "core0_load": global_data["core0_load"],
+        "core1_load": global_data["core1_load"],
+        "core2_load": global_data["core2_load"],
+        "pi_load": psutil.cpu_percent(),
+        "trafficSign": global_data["trafficSign"]
         }
 
     return kafka_data, mobile_data
@@ -240,8 +280,29 @@ def updatePayload():
 #######################################################################
 
 def mqtt_on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
-
+    global mqttClient, global_data
+    recv_msg = json.loads(str(msg.payload))
+    
+    #Mobile device have the highest priority
+    if recv_msg['dev_ID'] == "mobile":
+        global_data["msgSrc"] = "mobile"
+        global_data["speed_limit"] = recv_msg ['maxSpeed']
+        send_back_msg = {
+            "maxSpeed": global_data["speed_limit"]
+        }
+        mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
+    elif recv_msg['dev_ID'] == "VSK":
+        if (global_data["msgSrc"] == "mobile" and global_data["speed_limit"] == 0) or global_data["msgSrc"] == "VSK":
+            global_data["speed_limit"] = recv_msg ['maxSpeed']
+            global_data["msgSrc"] = "VSK"
+            send_back_msg = {
+                "maxSpeed": global_data["speed_limit"]
+            }
+            mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
+        else:
+            global_data['error_message'] = "SpeedLimit is being controlled by Mobile, cannot set from VSK"
+    #REMOVE in final version
+    print('Current Speed Limit: ', global_data["speed_limit"])
 
 # The callback for when the client receives a CONNACK response from the server.
 def mqtt_on_connect(client, userdata, flags, rc):
