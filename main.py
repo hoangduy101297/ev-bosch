@@ -75,7 +75,7 @@ CAN = {
         'func': updateDataABS
      },
     'PI1':{
-        'id':101
+        'id':101,
         'func': updateDataPI1
      },
     'PI2':{
@@ -114,7 +114,8 @@ global_data = {
     "core1_load": 0,
     "core2_load": 0,
     "trafficSign": 0,
-    "msgSrc": "VSK"
+    "msgSrc": "VSK",
+    "newTrafSign_flg": 0
 }
 
 error_msg_cnt = 0
@@ -123,9 +124,8 @@ error_msg_cnt = 0
 #######################################################################
 COM_Publish = None
 MQTT_Listen = None
-
+TrafSign = None
 canBus = None
-
 kafkaProducer = None
 mqttClient = None
 
@@ -152,7 +152,7 @@ def COM_Publish_Thread():
     mqtt_msg = {
             "maxSpeed": 0
         }
-        mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(mqtt_msg, indent=2), retain = True)
+    mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(mqtt_msg, indent=2), retain = True)
 
     while True:
         kafka_send_data, mobile_send_data = updatePayload()
@@ -174,6 +174,17 @@ def MQTT_Listen_Thread():
     global mqttClient
     mqttClient.loop_forever()
 
+def TrafSign_Thread():
+    global global_data, canBus
+
+    while True:
+        if global_data["newTrafSign_flg"]:
+            data = [1,1,1,1,1]
+            message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=True, data=data)
+            canBus.send(message)
+            global_data["newTrafSign_flg"] = 0
+        else:
+            pass
 
 
 #######################################################################
@@ -265,7 +276,7 @@ def updatePayload():
         "ampere": global_data["battery_current"],
         "frontBrakeStatus": global_data["front_break"],
         "rearBrakeStatus": global_data["rear_break"],
-        "outrigger_detection": global_data["outrigger_detection"]
+        "outrigger_detection": global_data["outrigger_detection"],
         "core0_load": global_data["core0_load"],
         "core1_load": global_data["core1_load"],
         "core2_load": global_data["core2_load"],
@@ -323,14 +334,16 @@ def mqtt_on_connect(client, userdata, flags, rc):
 #######################################################################
 #Set up all objects
 def init():
-    global COM_Publish, MQTT_Listen, canBus, kafkaProducer, mqttClient
+    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient
     
     #Init side Threads
     COM_Publish = Thread(target = COM_Publish_Thread)
     MQTT_Listen = Thread(target = MQTT_Listen_Thread)
+    TrafSign = Thread(target = TrafSign_Thread)
     
     COM_Publish.setDaemon(True)
     MQTT_Listen.setDaemon(True)
+    TrafSign.setDaemon(True)
 
     #Init CAN bus
     #canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
@@ -346,11 +359,12 @@ def init():
 
 #Start all processess
 def init_End():
-    global COM_Publish, MQTT_Listen
+    global COM_Publish, MQTT_Listen, TrafSign
 
     #Start side Threads
     COM_Publish.start()
     MQTT_Listen.start()
+    TrafSign.start()
 
 
 #######################################################################

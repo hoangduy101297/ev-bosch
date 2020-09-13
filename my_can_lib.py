@@ -12,7 +12,6 @@ def updateDataIVT1(new_data, des):
     des['front_wh_speed'] = spd
     des['rear_wh_speed'] = spd
     des['battery_voltage'] = (new_data[2]*2)/10
-    des['error_message'] = 'Inverter Temperature: ' + str(new_data[5])
 
 def updateDataIVT2(new_data, des):
     des['battery_current'] = new_data[0]
@@ -33,4 +32,5 @@ def updateDataRADAR(new_data, des):
     pass
 
 def updateDataPI2(new_data, des):
-    pass
+    #update PI2
+    des["newTrafSign_flg"] = 1
