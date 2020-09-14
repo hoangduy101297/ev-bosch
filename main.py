@@ -60,7 +60,7 @@ CAN = {
      },
     'CoreLoad0':{
         'id':24,
-        'func': updateDatacCoreLoad0
+        'func': updateDataCoreLoad0
      },
     'CoreLoad1':{
         'id':25,
@@ -75,17 +75,33 @@ CAN = {
         'func': updateDataABS
      },
     'PI1':{
-        'id':101,
+        'id':18,
         'func': updateDataPI1
      },
     'PI2':{
-        'id':102,
+        'id':42,
         'func': updateDataPI2
      },
     'RADAR':{
         'id':103,
         'func': updateDataRADAR
      }
+}
+global TRAF_ID_MOBILE
+TRAF_ID_MOBILE = {
+    "NoTraf":0,
+    "NoLim":1,
+    "Pedes":2,
+    "SpdLim":3,
+    "Stop":4
+}
+global TRAF_ID_VCU
+TRAF_ID_VCU = {
+    "NoLim":0,
+    "Pedes":1,
+    "SpdLim":2,
+    "Stop":3,
+    "NoTraf":4
 }
 
 ######################################################################
@@ -113,9 +129,10 @@ global_data = {
     "core0_load": 0,
     "core1_load": 0,
     "core2_load": 0,
-    "trafficSign": 0,
+    "trafficSign": "NoTraf",
     "msgSrc": "VSK",
-    "newTrafSign_flg": 0
+    "newTrafSign_flg": 0,
+    "speed_limit_traf":0
 }
 
 error_msg_cnt = 0
@@ -135,7 +152,7 @@ mqttClient = None
 #######################################################################
 
 #Read and proceed CAN data
-def CAN_Thread():
+def CAN_Thread(): 
     while True:
         rcv_msg = canBus.recv(timeout = None)
         updateDataFromCan(rcv_msg)
@@ -152,20 +169,24 @@ def COM_Publish_Thread():
     mqtt_msg = {
             "maxSpeed": 0
         }
-    mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(mqtt_msg, indent=2), retain = True)
+    try:
+        mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(mqtt_msg, indent=2), retain = True)
+    except:
+        pass
 
     while True:
         kafka_send_data, mobile_send_data = updatePayload()
 
         try:
             mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
-        except:
-            pass
+        except Exception as ex:
+            print("mqtt", ex)
 
         try:
             kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
-        except:
-            pass
+        except Exception as ex:
+            print("kafka", ex)
+        print(global_data["front_wh_speed"])
         time.sleep(COM_PUBLISH_RATE)
 
 
@@ -178,13 +199,16 @@ def TrafSign_Thread():
     global global_data, canBus
 
     while True:
-        if global_data["newTrafSign_flg"]:
-            data = [1,1,1,1,1]
-            message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=True, data=data)
+        #if global_data["newTrafSign_flg"]:
+        if True:
+            data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,global_data["speed_limit"]*2,0,0,0]
+            message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=False, data=data)
             canBus.send(message)
             global_data["newTrafSign_flg"] = 0
-        else:
-            pass
+            print(global_data["trafficSign"])
+            time.sleep(1)
+        #else:
+            #pass
 
 
 #######################################################################
@@ -281,7 +305,7 @@ def updatePayload():
         "core1_load": global_data["core1_load"],
         "core2_load": global_data["core2_load"],
         "pi_load": psutil.cpu_percent(),
-        "trafficSign": global_data["trafficSign"]
+        "trafficSign":TRAF_ID_MOBILE[global_data["trafficSign"]] 
         }
 
     return kafka_data, mobile_data
@@ -289,7 +313,6 @@ def updatePayload():
 #######################################################################
 #MQTT & Kafka callbacks
 #######################################################################
-
 def mqtt_on_message(client, userdata, msg):
     global mqttClient, global_data
     recv_msg = json.loads(str(msg.payload))
@@ -346,7 +369,8 @@ def init():
     TrafSign.setDaemon(True)
 
     #Init CAN bus
-    #canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
+    canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
+    canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}])
 
     #Init Kafka
     kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
