@@ -7,6 +7,7 @@
 
 
 import sys
+import os
 
 try:
     import Tkinter as tk
@@ -27,44 +28,103 @@ from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
-import numpy as np
 
+#Global Var
+top = None
 var_en_Accel = None
+var_en_Brk = None
+var_en_VehSpd = None
+var_en_Trq = None
+var_en_Console = None
+
+#0: Spd, 1: Trq
+g_fig = [None, None]
+g_canvas = [None, None]
+
+spd_data = []
+trq_data = []
+time_data = []
+data_rcv_cnt = 0
 
 def vp_start_gui(root):
     '''Starting point when module is the main routine.'''
-    global val, w
+    global val, w, g_fig, g_canvas, top
     #root = tk.Tk()
-    root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = '/home/pi/EV/ev-bosch/GUI/icon.png'))
+    root.tk.call('wm', 'iconphoto',root._w, tk.PhotoImage(file = os.path.realpath('..')+'/ev-bosch/GUI/icon.png'))
     test_GUI_support.set_Tk_var()
     init_textVar()
     top = GUI (root)
+    
     test_GUI_support.init(root, top)
-    logo = tk.PhotoImage(file="/home/pi/EV/ev-bosch/GUI/logo.png")
-    logo_label = tk.Label(root, image = logo)
-    logo_label.place(relx=0.015, rely=0.015)
-    logo_label.configure(background = "#d6c7c7")
 
+    g_fig[0], g_canvas[0] = create_fig(top.TNotebook1_t1_8)
+    g_fig[1], g_canvas[1] = create_fig(top.TNotebook1_t2_9)
+    
     return top
-    #root.mainloop()
 
 def init_textVar():
-    global var_en_Accel
+    global var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq, var_en_Console
+    
     var_en_Accel = tk.StringVar()
+    var_en_Brk = tk.StringVar()
+    var_en_VehSpd = tk.StringVar()
+    var_en_Trq = tk.StringVar()
+    var_en_Console = tk.StringVar()
 
 def create_fig(parent):
-    fig = Figure( dpi=100)
-    t = [0,1,2,3,4]
-    v = [0,100,20,30,15]
-    fig.add_subplot(111).plot(t, v)
+    fig = Figure(dpi=100)
+    fig.add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(0, 0, color = 'r')
     
     canvas = FigureCanvasTkAgg(fig, master=parent)  # A tk.DrawingArea.
     canvas.draw()
-    #canvas.get_tk_widget().pack(side=tk.TOP, expand=1)
-
+    
     toolbar = NavigationToolbar2TkAgg(canvas, parent)
     toolbar.update()
     canvas.get_tk_widget().pack(padx = 10, pady = 10, fill = 'x', expand = 1)
+    
+    return fig, canvas
+
+def callback_updateData(new_data, time):
+    # 0:Spd, 1:Crnt, 2: UBat, 3: Brk, 4: UMotor, 5: Temp, 6: iBat 
+    global data_rcv_cnt, time_data, spd_data, trq_data, time_data, var_en_Accel, var_en_VehSpd, var_en_Brk, var_en_Trq 
+    
+    data_rcv_cnt = data_rcv_cnt + 1
+
+    var_en_Accel.set(new_data[1])#dummy
+    var_en_Brk.set(new_data[3])
+    var_en_VehSpd.set(new_data[0])
+    var_en_Trq.set(new_data[4]) #dummy
+
+    if(data_rcv_cnt == 10):
+        data_rcv_cnt = 0      
+        spd_data.append(new_data[0])
+        trq_data.append(new_data[3])
+        time_data.append(time)
+
+    
+def update_fig():
+    global g_fig, g_canvas
+    
+    g_fig[0].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, spd_data, color = 'r')
+    g_canvas[0].draw()
+    
+    g_fig[1].add_subplot(111, ylim = ([0,100]), xlim = ([0,100])).plot(time_data, trq_data, color = 'r')
+    g_canvas[1].draw()
+
+def send_can_cmd():
+    global var_en_Console
+    text = top.en_Cmd.get()   
+    #var_en_Console.set(text)
+    
+    print(text)
+        
+    console_text = "Set Vehicle Speed Limit to "+text+" km/h"
+    top.en_Console.delete(1.0, tk.END)
+    top.en_Console.insert(tk.END, console_text)
+    
+#############################################
+##########Generated Function#################
+#############################################
 
 w = None
 def create_GUI(rt, *args, **kwargs):
@@ -83,10 +143,6 @@ def destroy_GUI():
     global w
     w.destroy()
     w = None
-
-def GUI_update(cnt):
-    global var_en_Accel
-    var_en_Accel.set(cnt)
 
 class GUI:
     def __init__(self, top=None):
@@ -117,7 +173,7 @@ class GUI:
         top.configure(highlightthickness="1")
 
         self.prj_name = tk.Message(top)
-        self.prj_name.place(relx=0.119, rely=0.009, relheight=0.059
+        self.prj_name.place(relx=0.125, rely=0.009, relheight=0.059
                 , relwidth=0.219)
         self.prj_name.configure(background="#d6c7c7")
         self.prj_name.configure(font="-family {DejaVu Serif} -size 15 -weight normal -slant roman -underline 0 -overstrike 0")
@@ -145,7 +201,7 @@ class GUI:
         self.lb_VehSpd.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.lb_VehSpd.configure(text='''Speed''')
 
-        self.en_VehSpd = tk.Entry(self.Labelframe1)
+        self.en_VehSpd = tk.Entry(self.Labelframe1, textvariable = var_en_VehSpd)
         self.en_VehSpd.place(relx=0.149, rely=0.171, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_VehSpd.configure(background="white")
@@ -175,16 +231,16 @@ class GUI:
         self.la_Acc.configure(activebackground="#f9f9f9")
         self.la_Acc.configure(background="#faffba")
         self.la_Acc.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
-        self.la_Acc.configure(text='''Accel''')
+        self.la_Acc.configure(text='''ACC''')
 
-        self.en_Trq = tk.Entry(self.Labelframe1)
+        self.en_Trq = tk.Entry(self.Labelframe1, textvariable = var_en_Trq)
         self.en_Trq.place(relx=0.625, rely=0.545, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Trq.configure(background="white")
         self.en_Trq.configure(font="-family {DejaVu Sans} -size 13 -weight normal -slant roman -underline 0 -overstrike 0")
         self.en_Trq.configure(selectbackground="#c4c4c4")
 
-        self.en_Brk = tk.Entry(self.Labelframe1)
+        self.en_Brk = tk.Entry(self.Labelframe1, textvariable = var_en_Brk)
         self.en_Brk.place(relx=0.623, rely=0.171, height=43, relwidth=0.326
                 , bordermode='ignore')
         self.en_Brk.configure(background="white")
@@ -319,14 +375,14 @@ class GUI:
         self.btn_Lock_5.configure(relief="groove")
         self.btn_Lock_5.configure(text='''STOP''')
 
-        self.btn_SendSpdLim = tk.Button(self.Labelframe1_6)
-        self.btn_SendSpdLim.place(relx=0.819, rely=0.249, height=31, width=73
+        self.btn_CmdSend = tk.Button(self.Labelframe1_6, command = send_can_cmd)
+        self.btn_CmdSend.place(relx=0.819, rely=0.249, height=31, width=73
                 , bordermode='ignore')
-        self.btn_SendSpdLim.configure(activebackground="#f9f9f9")
-        self.btn_SendSpdLim.configure(cursor="fleur")
-        self.btn_SendSpdLim.configure(text='''Send''')
+        self.btn_CmdSend.configure(activebackground="#f9f9f9")
+        self.btn_CmdSend.configure(cursor="fleur")
+        self.btn_CmdSend.configure(text='''Send''')
 
-        self.en_Console = tk.Entry(self.Labelframe1_6)
+        self.en_Console = tk.Text(self.Labelframe1_6)
         self.en_Console.place(relx=0.079, rely=0.449, height=93, relwidth=0.836
                 , bordermode='ignore')
         self.en_Console.configure(background="#ffffffffffff")
@@ -413,26 +469,26 @@ class GUI:
         self.Label1_16.configure(font="-family {DejaVu Sans} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
         self.Label1_16.configure(text='''x Trq(Brk) -''')
 
-        self.Entry1 = tk.Entry(self.TNotebook1t1_9)
-        self.Entry1.place(relx=0.172, rely=0.147,height=33, relwidth=0.092)
-        self.Entry1.configure(background="white")
-        self.Entry1.configure(font="-family {Liberation Mono} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
-        self.Entry1.configure(selectbackground="blue")
-        self.Entry1.configure(selectforeground="white")
+        self.en_K1 = tk.Entry(self.TNotebook1t1_9)
+        self.en_K1.place(relx=0.172, rely=0.147,height=33, relwidth=0.092)
+        self.en_K1.configure(background="white")
+        self.en_K1.configure(font="-family {Liberation Mono} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
+        self.en_K1.configure(selectbackground="blue")
+        self.en_K1.configure(selectforeground="white")
 
-        self.Entry1_17 = tk.Entry(self.TNotebook1t1_9)
-        self.Entry1_17.place(relx=0.512, rely=0.147,height=33, relwidth=0.092)
-        self.Entry1_17.configure(background="white")
-        self.Entry1_17.configure(font="-family {Liberation Mono} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
-        self.Entry1_17.configure(selectbackground="blue")
-        self.Entry1_17.configure(selectforeground="white")
+        self.en_K2 = tk.Entry(self.TNotebook1t1_9)
+        self.en_K2.place(relx=0.512, rely=0.147,height=33, relwidth=0.092)
+        self.en_K2.configure(background="white")
+        self.en_K2.configure(font="-family {Liberation Mono} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
+        self.en_K2.configure(selectbackground="blue")
+        self.en_K2.configure(selectforeground="white")
 
-        self.Entry1_18 = tk.Entry(self.TNotebook1t1_9)
-        self.Entry1_18.place(relx=0.851, rely=0.147,height=33, relwidth=0.092)
-        self.Entry1_18.configure(background="white")
-        self.Entry1_18.configure(font="-family {Liberation Mono} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
-        self.Entry1_18.configure(selectbackground="blue")
-        self.Entry1_18.configure(selectforeground="white")
+        self.en_const = tk.Entry(self.TNotebook1t1_9)
+        self.en_const.place(relx=0.851, rely=0.147,height=33, relwidth=0.092)
+        self.en_const.configure(background="white")
+        self.en_const.configure(font="-family {Liberation Mono} -size 17 -weight normal -slant roman -underline 0 -overstrike 0")
+        self.en_const.configure(selectbackground="blue")
+        self.en_const.configure(selectforeground="white")
 
         self.Frame1 = tk.Frame(self.TNotebook1t1_9)
         self.Frame1.place(relx=0.016, rely=0.449, relheight=0.478
@@ -450,9 +506,6 @@ class GUI:
         self.Message1.configure(pady="0")
         self.Message1.configure(text='''Description: User gives the value of K1, K2 and Power-Loss Constant (C)''')
         self.Message1.configure(width=502)
-        
-        create_fig(self.TNotebook1_t1_8)
-        create_fig(self.TNotebook1_t2_9)
 
         
     @staticmethod
@@ -526,8 +579,4 @@ class GUI:
 
 if __name__ == '__main__':
     vp_start_gui()
-
-
-
-
 

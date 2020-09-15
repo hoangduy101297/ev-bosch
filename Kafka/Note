@@ -1,0 +1,24 @@
+Set up 
+bin/zookeeper-server-start.sh config/zookeeper.properties   -> setup zooKeeper
+
+Create server
+bin/kafka-server-start.sh config/server.properties -> no execute
+Creat topic
+bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 2 --partitions 1 --topic demo-topic
+
+
+
+
+Script for testing
+bin/kafka-console-producer.sh --broker-list localhost:9092 --topic demo-topic -> console to test producer
+
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic demo-topic -> console to test consumer
+
+
+
+
+
+
+
+
+
