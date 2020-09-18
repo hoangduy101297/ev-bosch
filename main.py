@@ -1,6 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 #######################################################################
 #Import Packages
 #######################################################################
+from __future__ import division
 import time
 import can
 import sys
@@ -13,13 +17,14 @@ import paho.mqtt.client as mqtt
 from kafka import KafkaProducer
 from my_can_lib import *
 
+
 ######################################################################
 #																	 #
 #					  	   Configuration 					         #
 #																	 #
 ######################################################################
 #Timerate to publish MQTT and Kafka. MIN 1s
-COM_PUBLISH_RATE = 0.7 #700ms
+COM_PUBLISH_RATE = 1 #700ms
 
 #Time delay to publish COM after reset
 RESET_DELAY_TIME = 1 #1s
@@ -71,7 +76,7 @@ CAN = {
         'func': updateDataCoreLoad2
      },
     'ABS':{
-        'id':100,
+        'id':16,
         'func': updateDataABS
      },
     'PI1':{
@@ -132,7 +137,8 @@ global_data = {
     "trafficSign": "NoTraf",
     "msgSrc": "VSK",
     "newTrafSign_flg": 0,
-    "speed_limit_traf":0
+    "speed_limit_traf":0,
+    "t15_st":0
 }
 
 error_msg_cnt = 0
@@ -186,7 +192,7 @@ def COM_Publish_Thread():
             kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
         except Exception as ex:
             print("kafka", ex)
-        print(global_data["front_wh_speed"])
+        print(global_data)    
         time.sleep(COM_PUBLISH_RATE)
 
 
@@ -200,13 +206,14 @@ def TrafSign_Thread():
 
     while True:
         #if global_data["newTrafSign_flg"]:
-        if True:
-            data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,global_data["speed_limit"]*2,0,0,0]
-            message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=False, data=data)
+        data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,int(global_data["speed_limit"]*2),0,0,0]
+        message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=False, data=data)
+        try:
             canBus.send(message)
-            global_data["newTrafSign_flg"] = 0
-            print(global_data["trafficSign"])
-            time.sleep(1)
+        except Exception as ex:
+            pass
+        global_data["newTrafSign_flg"] = 0
+        time.sleep(0.1)
         #else:
             #pass
 
@@ -251,7 +258,7 @@ def updateDataFromCan(msg):
 #Update data from global_data to Kafka and MQTT payload
 def updatePayload():
     global global_data, error_msg_cnt
-    
+
     #Error message is only sent 5 times
     if global_data['error_message'] != 'no error':
         error_msg_cnt = error_msg_cnt + 1
@@ -285,7 +292,7 @@ def updatePayload():
             "core1_load": global_data["core1_load"],
             "core2_load": global_data["core2_load"],
             "pi_load": psutil.cpu_percent(),
-            "trafficSign": global_data["trafficSign"]
+            "trafficSign": TRAF_ID_MOBILE[global_data["trafficSign"]] 
           }
         ]
       }
@@ -336,7 +343,7 @@ def mqtt_on_message(client, userdata, msg):
         else:
             global_data['error_message'] = "SpeedLimit is being controlled by Mobile, cannot set from VSK"
     #REMOVE in final version
-    print('Current Speed Limit: ', global_data["speed_limit"])
+    #print('Current Speed Limit: ', global_data["speed_limit"])
 
 # The callback for when the client receives a CONNACK response from the server.
 def mqtt_on_connect(client, userdata, flags, rc):
@@ -370,7 +377,7 @@ def init():
 
     #Init CAN bus
     canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
-    canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}])
+    canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}, {"can_id":16, "can_mask":0x7FF}])
 
     #Init Kafka
     kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
