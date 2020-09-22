@@ -386,7 +386,8 @@ def mqtt_on_connect(client, userdata, flags, rc):
 #Set up all objects
 def init():
     global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient,debug_msg
-    
+    reInitTrigger_kafka = 1
+    reInitTrigger_MQTT = 1
     #Init side Threads
     COM_Publish = Thread(target = COM_Publish_Thread)
     MQTT_Listen = Thread(target = MQTT_Listen_Thread)
@@ -401,10 +402,12 @@ def init():
     canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}, {"can_id":16, "can_mask":0x7FF}])
 
     #Init Kafka
+    if reInitTrigger_kafka == 1
     try:
         kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
+        reInitTrigger_kafka == 0
     except:
-        
+        reInitTrigger_kafka = 1
         if(debug_msg == 1):
             print("Can't connect to kafka, try to reconnect after 5s")
     
@@ -415,8 +418,15 @@ def init():
     try:
         mqttClient.connect(MQTT_HOST,MQTT_PORT)
     except:
+        reInitTrigger = 1
         if(debug_msg == 1):
             print("Can't connect to MQTT, try to reconnect after 5s")
+            
+    #Re-initialize protocol
+    if reInitTrigger == 1:
+        time.sleep(5)
+        reInitTrigger = 0
+        init()
 
 #Start all processess
 def init_End():
