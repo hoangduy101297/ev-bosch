@@ -23,6 +23,9 @@ from my_can_lib import *
 #					  	   Configuration 					         #
 #																	 #
 ######################################################################
+#Debug conf (=1 debug message print out)
+debug_msg = 1
+
 #Timerate to publish MQTT and Kafka. MIN 1s
 COM_PUBLISH_RATE = 1 #700ms
 
@@ -41,6 +44,9 @@ MQTT_PORT = 1883
 MQTT_SEND_TOPIC = "mobile-topic"
 MQTT_RECV_TOPIC = "mobileToPi-topic"
 
+#Global variable of clearErrMsg()
+error_msg_tmr = 5 #debounce time before clear error
+error_msg_cnt = 0
 
 #CAN constant
 CAN_BITRATE = 500000
@@ -141,7 +147,6 @@ global_data = {
     "t15_st":0
 }
 
-error_msg_cnt = 0
 #######################################################################
 #Declare Global Obj
 #######################################################################
@@ -158,15 +163,21 @@ mqttClient = None
 #######################################################################
 
 #Read and proceed CAN data
-def CAN_Thread(): 
+def CAN_Thread():
+    global global_data,error_msg_cnt
     while True:
-        rcv_msg = canBus.recv(timeout = None)
-        updateDataFromCan(rcv_msg)
+        try:
+            rcv_msg = canBus.recv(timeout = None)
+            updateDataFromCan(rcv_msg)
+            clearErrMsg()
+        except:
+            global_data['error_message'] = "Can't receive message from CAN"
+            error_msg_cnt = 0 #reset cnt to avoid error clear
         
         
 #Publish Kafka and MQTT
 def COM_Publish_Thread():
-    global mqttClient, kafkaProducer
+    global mqttClient, kafkaProducer,debug_msg
 
     #After start-up, we should wait some times before starting sending Kafka and MQTT
     time.sleep(RESET_DELAY_TIME)
@@ -186,13 +197,17 @@ def COM_Publish_Thread():
         try:
             mqttClient.publish(MQTT_SEND_TOPIC,json.dumps(mobile_send_data, indent=2))
         except Exception as ex:
-            print("mqtt", ex)
+            global_data['error_message'] = "Can't publish message to MQTT"
+            if(debug_msg == 1):
+                print("Can't publish message MQTT: ", ex)
 
         try:
             kafkaProducer.send(KAFKA_SEND_TOPIC, value=json.dumps(kafka_send_data, indent=2))
         except Exception as ex:
-            print("kafka", ex)
-        print(global_data)    
+            if(debug_msg == 1):
+                print("Can't publish message kafka: ", ex)
+        if(debug_msg == 1):
+            print(global_data)    
         time.sleep(COM_PUBLISH_RATE)
 
 
@@ -255,16 +270,17 @@ def updateDataFromCan(msg):
             can_properties['func'](msg.data, global_data)
             break
     
-#Update data from global_data to Kafka and MQTT payload
-def updatePayload():
-    global global_data, error_msg_cnt
-
-    #Error message is only sent 5 times
+def clearErrMsg():
+    global error_msg_cnt,error_msg_tmr
     if global_data['error_message'] != 'no error':
         error_msg_cnt = error_msg_cnt + 1
-        if(error_msg_cnt > 5):
+        if(error_msg_cnt > error_msg_tmr):
             global_data['error_message'] = 'no error'
             error_msg_cnt = 0
+
+#Update data from global_data to Kafka and MQTT payload
+def updatePayload():
+    global global_data
     
     current_milli_time = int(round(time.time() * 1000))
     kafka_data = {
@@ -332,6 +348,8 @@ def mqtt_on_message(client, userdata, msg):
             "maxSpeed": global_data["speed_limit"]
         }
         mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
+        #Clear error message
+        clearErrMsg()
     elif recv_msg['dev_ID'] == "VSK":
         if (global_data["msgSrc"] == "mobile" and global_data["speed_limit"] == 0) or global_data["msgSrc"] == "VSK":
             global_data["speed_limit"] = recv_msg ['maxSpeed']
@@ -340,8 +358,11 @@ def mqtt_on_message(client, userdata, msg):
                 "maxSpeed": global_data["speed_limit"]
             }
             mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
+            #Clear error message
+            clearErrMsg()
         else:
             global_data['error_message'] = "SpeedLimit is being controlled by Mobile, cannot set from VSK"
+            error_msg_cnt = 0 #reset cnt to avoid error clear
     #REMOVE in final version
     #print('Current Speed Limit: ', global_data["speed_limit"])
 
@@ -364,7 +385,7 @@ def mqtt_on_connect(client, userdata, flags, rc):
 #######################################################################
 #Set up all objects
 def init():
-    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient
+    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient,debug_msg
     
     #Init side Threads
     COM_Publish = Thread(target = COM_Publish_Thread)
@@ -380,13 +401,22 @@ def init():
     canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}, {"can_id":16, "can_mask":0x7FF}])
 
     #Init Kafka
-    kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
+    try:
+        kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
+    except:
+        
+        if(debug_msg == 1):
+            print("Can't connect to kafka, try to reconnect after 5s")
     
     #Init MQTT
     mqttClient= mqtt.Client("control1")
     mqttClient.on_message = mqtt_on_message
     mqttClient.on_connect = mqtt_on_connect
-    mqttClient.connect(MQTT_HOST,MQTT_PORT)
+    try:
+        mqttClient.connect(MQTT_HOST,MQTT_PORT)
+    except:
+        if(debug_msg == 1):
+            print("Can't connect to MQTT, try to reconnect after 5s")
 
 #Start all processess
 def init_End():
