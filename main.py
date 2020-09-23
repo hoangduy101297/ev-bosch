@@ -26,6 +26,12 @@ from my_can_lib import *
 #Debug conf (=1 debug message print out)
 debug_msg = 1
 
+#global variables for Init()
+initDone_kafka = 0
+initDone_MQTT = 0
+retry_time = 5
+retry_cnt = 0
+
 #Timerate to publish MQTT and Kafka. MIN 1s
 COM_PUBLISH_RATE = 1 #700ms
 
@@ -385,9 +391,8 @@ def mqtt_on_connect(client, userdata, flags, rc):
 #######################################################################
 #Set up all objects
 def init():
-    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient,debug_msg
-    reInitTrigger_kafka = 1
-    reInitTrigger_MQTT = 1
+    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient,debug_msg,initDone_kafka,initDone_MQTT,retry_time,retry_cnt,global_data
+    
     #Init side Threads
     COM_Publish = Thread(target = COM_Publish_Thread)
     MQTT_Listen = Thread(target = MQTT_Listen_Thread)
@@ -402,31 +407,39 @@ def init():
     canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}, {"can_id":16, "can_mask":0x7FF}])
 
     #Init Kafka
-    if reInitTrigger_kafka == 1
-    try:
-        kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
-        reInitTrigger_kafka == 0
-    except:
-        reInitTrigger_kafka = 1
-        if(debug_msg == 1):
-            print("Can't connect to kafka, try to reconnect after 5s")
+    if initDone_kafka == 0:
+        try:
+            kafkaProducer = KafkaProducer(bootstrap_servers=[KAFKA_HOST+":"+str(KAFKA_PORT)])
+            initDone_kafka = 1
+        except:
+            initDone_kafka = 0
+            if(debug_msg == 1):
+                print("Can't connect to kafka, try to reconnect after 5s")
     
     #Init MQTT
     mqttClient= mqtt.Client("control1")
     mqttClient.on_message = mqtt_on_message
     mqttClient.on_connect = mqtt_on_connect
-    try:
-        mqttClient.connect(MQTT_HOST,MQTT_PORT)
-    except:
-        reInitTrigger = 1
-        if(debug_msg == 1):
-            print("Can't connect to MQTT, try to reconnect after 5s")
+    if initDone_MQTT == 0:
+        try:
+            mqttClient.connect(MQTT_HOST,MQTT_PORT)
+            initDone_MQTT = 1
+        except:
+            initDone_MQTT = 0
+            global_data['error_message'] = "Can't connect to MQTT"
+            if(debug_msg == 1):
+                print("Can't connect to MQTT, try to reconnect after 5s")
             
     #Re-initialize protocol
-    if reInitTrigger == 1:
+    if (initDone_MQTT + initDone_kafka) < 1:
         time.sleep(5)
-        reInitTrigger = 0
         init()
+    elif (initDone_MQTT + initDone_MQTT) < 2:
+        if retry_cnt < retry_time:
+            print('Attempt to retry: ',retry_cnt)
+            retry_cnt = retry_cnt + 1
+            time.sleep(5)
+            init()
 
 #Start all processess
 def init_End():
