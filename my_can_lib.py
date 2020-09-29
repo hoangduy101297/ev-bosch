@@ -37,13 +37,16 @@ def updateDataCoreLoad0(new_data, des):
         des['core0_load'] = (new_data[0]*256 + new_data[1])/100
     else:
         des['core0_load'] = 0
+    #print(new_data.value)
+    des['front_wh_speed'] = round((new_data[6]*256 + new_data[7])*0.05625,2)
 
 def updateDataCoreload1(new_data, des):
     if stop_tranfer_data == 0:
         des['core1_load'] = (new_data[0]*256 + new_data[1])/100
     else:
         des['core1_load'] = 0
-
+    #print(new_data.value)
+    des['rear_wh_speed'] = round((new_data[6]*256 + new_data[7])*0.05625,2)
 def updateDataCoreLoad2(new_data, des):
     if stop_tranfer_data == 0:
         des['core2_load'] = (new_data[0]*256 + new_data[1])/100
@@ -51,9 +54,7 @@ def updateDataCoreLoad2(new_data, des):
         des['core2_load'] = 0
 
 def updateDataABS(new_data, des):
-    #print(new_data.value)
-    des['front_wh_speed'] = round((new_data[0]*256 + new_data[1])*0.05625,2)
-    des['rear_wh_speed'] = round((new_data[2]*256 + new_data[3])*0.05625,2)
+    pass
 
 def updateDataRADAR(new_data, des):
     pass
