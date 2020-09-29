@@ -1,6 +1,6 @@
 from __future__ import division
 
-global TRAF_ID
+global TRAF_ID,prev_T15_st,cnt,str_cnt,stop_tranfer_data
 TRAF_ID = ["SpdLim","NoLim","Pedes","Stop","NoTraf"]
 
 def updateDataVCU1(new_data, des):
@@ -12,6 +12,19 @@ def updateDataVCU1(new_data, des):
 def updateDataVCU2(new_data, des):
     des['battery_status'] = (new_data[0]*4 + ((new_data[1]&0xC0)>>6))/10
     des['t15_st'] = 1 if new_data[1] & 0x04 == 0x04 else 0
+    if des['t15_st'] == 0:
+        if prev_T15_st == 1:
+            str_cnt = 1
+        if str_cnt == 1:
+            cnt = cnt + 1
+            if cnt >= 10:
+                stop_tranfer_data = 1
+                str_cnt = 0
+    else:
+        str_cnt = 0
+        cnt = 0
+        stop_tranfer_data = 0
+    prev_T15_st = des['t15_st']
 
 def updateDataIVT1(new_data, des):
     des['battery_voltage'] = (new_data[2]*2)/10
@@ -20,13 +33,22 @@ def updateDataIVT2(new_data, des):
     des['battery_current'] = new_data[0]
 
 def updateDataCoreLoad0(new_data, des):
-    des['core0_load'] = (new_data[0]*256 + new_data[1])/100
+    if stop_tranfer_data == 0:
+        des['core0_load'] = (new_data[0]*256 + new_data[1])/100
+    else:
+        des['core0_load'] = 0
 
 def updateDataCoreload1(new_data, des):
-    des['core1_load'] = (new_data[0]*256 + new_data[1])/100
+    if stop_tranfer_data == 0:
+        des['core1_load'] = (new_data[0]*256 + new_data[1])/100
+    else:
+        des['core1_load'] = 0
 
 def updateDataCoreLoad2(new_data, des):
-    des['core2_load'] = (new_data[0]*256 + new_data[1])/100    
+    if stop_tranfer_data == 0:
+        des['core2_load'] = (new_data[0]*256 + new_data[1])/100
+    else:
+        des['core2_load'] = 0
 
 def updateDataABS(new_data, des):
     #print(new_data.value)

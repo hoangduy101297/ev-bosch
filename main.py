@@ -456,8 +456,8 @@ def init():
     TrafSign.setDaemon(True)
 
     #Init CAN bus
-    #canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
-    #canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}, {"can_id":16, "can_mask":0x7FF}])
+    canBus = can.interface.Bus(bustype='socketcan', channel=CAN_CHANNEL ,bitrate=CAN_BITRATE)
+    canBus.set_filters([{"can_id":21, "can_mask":0x7FF},{"can_id":22, "can_mask":0x7FF}, {"can_id":24, "can_mask":0x7FF}, {"can_id":25, "can_mask":0x7FF}, {"can_id":26, "can_mask":0x7FF}, {"can_id":35, "can_mask":0x7FF}, {"can_id":36, "can_mask":0x7FF}, {"can_id":42, "can_mask":0x7FF}, {"can_id":16, "can_mask":0x7FF}])
 
     #Init Kafka
     if initDone_kafka == 0:
@@ -509,9 +509,7 @@ def init_End():
 #Define Main Thread, just assign above thread into main thread
 #######################################################################
 def main_Thread():
-    #CAN_Thread()
-    while True:
-        pass
+    CAN_Thread()
 
 #######################################################################
 #Main Program Flow
