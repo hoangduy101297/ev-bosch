@@ -177,9 +177,8 @@ def CAN_Thread():
         try:
             rcv_msg = canBus.recv(timeout = None)
             updateDataFromCan(rcv_msg)
-            clearErrReport("CAN_recei_err")
         except:
-            reportErr("CAN_recei_err")
+            pass
         
         
 #Publish Kafka and MQTT
@@ -280,7 +279,7 @@ def updateDataFromCan(msg):
             break
         
 def updateErrMsg():
-    global errorArr,global_data
+    global errorArr,global_data,debug_msg
     global_data["error_message"] = ''
     if errorArr[0] == 1:
         global_data["error_message"] += "MQTT connection error \n"
@@ -296,9 +295,10 @@ def updateErrMsg():
         
     if global_data["error_message"] == '':
         global_data["error_message"] = "no error"
+    print("done")
         
 def reportErr(error):
-    global errorArr
+    global errorArr,debug_msg
     if error == "MQTT_conn_err":
         errorArr[0] = 1
         if (debug_msg == 1):
@@ -320,7 +320,7 @@ def reportErr(error):
             print("speedLimit_deny")
     
 def clearErrReport(error):
-    global error_msg_cnt,error_msg_tmr
+    global errorArr
     if error == "MQTT_conn_err":
         errorArr[0] = 0
         
@@ -444,7 +444,7 @@ def mqtt_on_connect(client, userdata, flags, rc):
 #######################################################################
 #Set up all objects
 def init():
-    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient,debug_msg,initDone_kafka,initDone_MQTT,retry_time,retry_cnt,global_data
+    global COM_Publish, MQTT_Listen, TrafSign, canBus, kafkaProducer, mqttClient,debug_msg,initDone_kafka,initDone_MQTT,retry_time,retry_cnt
     
     #Init side Threads
     COM_Publish = Thread(target = COM_Publish_Thread)
@@ -518,6 +518,7 @@ if __name__ == "__main__":
 
         #Start CAN init
         return_value = subprocess.call(['sh', './CAN_Ini.sh'])
+        time.sleep(1)
         print(return_value)
         
         #Initialize stuff

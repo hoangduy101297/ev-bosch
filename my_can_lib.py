@@ -10,6 +10,7 @@ def updateDataVCU1(new_data, des):
     des['odo_meter'] = (new_data[4]*256*256*256 + new_data[5]*256*256+ new_data[6]*256 + new_data[7])/1000
 
 def updateDataVCU2(new_data, des):
+    global prev_T15_st,cnt,str_cnt,stop_tranfer_data
     des['battery_status'] = (new_data[0]*4 + ((new_data[1]&0xC0)>>6))/10
     des['t15_st'] = 1 if new_data[1] & 0x04 == 0x04 else 0
     if des['t15_st'] == 0:
@@ -33,6 +34,7 @@ def updateDataIVT2(new_data, des):
     des['battery_current'] = new_data[0]
 
 def updateDataCoreLoad0(new_data, des):
+    global stop_tranfer_data
     if stop_tranfer_data == 0:
         des['core0_load'] = (new_data[0]*256 + new_data[1])/100
     else:
@@ -41,6 +43,7 @@ def updateDataCoreLoad0(new_data, des):
     des['front_wh_speed'] = round((new_data[6]*256 + new_data[7])*0.05625,2)
 
 def updateDataCoreload1(new_data, des):
+    global stop_tranfer_data
     if stop_tranfer_data == 0:
         des['core1_load'] = (new_data[0]*256 + new_data[1])/100
     else:
@@ -48,12 +51,14 @@ def updateDataCoreload1(new_data, des):
     #print(new_data.value)
     des['rear_wh_speed'] = round((new_data[6]*256 + new_data[7])*0.05625,2)
 def updateDataCoreLoad2(new_data, des):
+    global stop_tranfer_data
     if stop_tranfer_data == 0:
         des['core2_load'] = (new_data[0]*256 + new_data[1])/100
     else:
         des['core2_load'] = 0
 
 def updateDataABS(new_data, des):
+    #des['rear_wh_speed'] = round((new_data[0]*256 + new_data[1])*0.05625,2)
     pass
 
 def updateDataRADAR(new_data, des):
