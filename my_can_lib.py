@@ -69,5 +69,5 @@ def updateDataPI1(new_data, des):
 
 def updateDataPI2(new_data, des):
     des["trafficSign"] = TRAF_ID[new_data[2]]
-    des["speed_limit_traf"] = 40 if new_data[2] == 0 else 100
+    des["speed_limit_traf"] = 30 if new_data[2] == 0 else 100
     des["newTrafSign_flg"] = 1

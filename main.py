@@ -176,7 +176,15 @@ def CAN_Thread():
     while True:
         try:
             rcv_msg = canBus.recv(timeout = None)
+##            CAN_err = 0 if rcv_msg.find('ID: 0004') == -1 else 1
+##            print(rcv_msg)
             updateDataFromCan(rcv_msg)
+            
+##            if CAN_err == 1:
+##                reportErr("CAN_recei_err")
+##            else:
+##                clearErrReport("CAN_recei_err")
+##            print(rcv_msg)
         except:
             pass
         
@@ -275,8 +283,12 @@ def updateDataFromCan(msg):
     global global_data
     for key, can_properties in CAN.items():
         if msg.arbitration_id == can_properties['id']:
-            can_properties['func'](msg.data, global_data)
-            break
+##            try:
+                can_properties['func'](msg.data, global_data)
+                break
+##            except:
+##                reportErr("CAN_recei_err")
+##                pass
         
 def updateErrMsg():
     global errorArr,global_data,debug_msg
@@ -295,7 +307,6 @@ def updateErrMsg():
         
     if global_data["error_message"] == '':
         global_data["error_message"] = "no error"
-    print("done")
         
 def reportErr(error):
     global errorArr,debug_msg
@@ -488,7 +499,7 @@ def init():
     if (initDone_MQTT + initDone_kafka) < 1:
         time.sleep(5)
         init()
-    elif (initDone_MQTT + initDone_MQTT) < 2: #Retry 5 times if MQTT or Kafka connected
+    elif (initDone_MQTT + initDone_kafka) < 2: #Retry 5 times if MQTT or Kafka connected
         if retry_cnt < retry_time:
             print('Attempt to retry: ',retry_cnt)
             retry_cnt = retry_cnt + 1
