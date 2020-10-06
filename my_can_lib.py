@@ -1,5 +1,6 @@
 from __future__ import division
 
+WAIT_TIME_T15_OFF = 5*5 
 global TRAF_ID,prev_T15_st,cnt,str_cnt,stop_tranfer_data
 TRAF_ID = ["SpdLim","NoLim","Pedes","Stop","NoTraf"]
 
@@ -18,7 +19,7 @@ def updateDataVCU2(new_data, des):
             str_cnt = 1
         if str_cnt == 1:
             cnt = cnt + 1
-            if cnt >= 10:
+            if cnt >= WAIT_TIME_T15_OFF:
                 stop_tranfer_data = 1
                 str_cnt = 0
     else:
@@ -31,7 +32,7 @@ def updateDataIVT1(new_data, des):
     des['battery_voltage'] = (new_data[2]*2)/10
 
 def updateDataIVT2(new_data, des):
-    des['battery_current'] = new_data[0]
+    des['battery_current'] = new_data[0] if new_data[0] <= 127 else 128 - new_data[0]
 
 def updateDataCoreLoad0(new_data, des):
     global stop_tranfer_data

@@ -244,7 +244,6 @@ def TrafSign_Thread():
             canBus.send(message)
         except Exception as ex:
             pass
-        global_data["newTrafSign_flg"] = 0
         time.sleep(0.1)
         #else:
             #pass
