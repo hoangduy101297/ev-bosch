@@ -134,7 +134,7 @@ TRAF_ID_VCU = {
 #######################################################################
 global_lock = 0
 global_data = {
-    "speed_limit": 0, 
+    "spdFamilyShare": 0, 
     "battery_status": 0, 
     "front_wh_speed": 0, 
     "rear_wh_speed": 0, 
@@ -151,8 +151,9 @@ global_data = {
     "trafficSign": "NoTraf",
     "msgSrc": "VSK",
     "newTrafSign_flg": 0,
-    "speed_limit_traf":0,
-    "t15_st":0
+    "speed_limit_traf":100,
+    "t15_st":0,
+    "speed_limit": 0
 }
 
 #######################################################################
@@ -238,7 +239,7 @@ def TrafSign_Thread():
 
     while True:
         #if global_data["newTrafSign_flg"]:
-        data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,int(global_data["speed_limit"]*2),0,0,0]
+        data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,int(global_data["spdFamilyShare"]*2),0,0,0]
         message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=False, data=data)
         try:
             canBus.send(message)
@@ -347,7 +348,7 @@ def clearErrReport(error):
 #Update data from global_data to Kafka and MQTT payload
 def updatePayload():
     global global_data
-    
+    pi_load = psutil.cpu_percent()
     updateErrMsg()
     current_milli_time = int(round(time.time() * 1000))
     kafka_data = {
@@ -374,7 +375,7 @@ def updatePayload():
             "core0_load": global_data["core0_load"],
             "core1_load": global_data["core1_load"],
             "core2_load": global_data["core2_load"],
-            "pi_load": psutil.cpu_percent(),
+            "pi_load": pi_load,
             "trafficSign": TRAF_ID_MOBILE[global_data["trafficSign"]] 
           }
         ]
@@ -390,11 +391,11 @@ def updatePayload():
         "ampere": global_data["battery_current"],
         "frontBrakeStatus": global_data["front_break"],
         "rearBrakeStatus": global_data["rear_break"],
-        "outrigger_detection": global_data["outrigger_detection"],
+        "outrigger_detection": 0 if global_data["outrigger_detection"] == 1 else 1,
         "core0_load": global_data["core0_load"],
         "core1_load": global_data["core1_load"],
         "core2_load": global_data["core2_load"],
-        "pi_load": psutil.cpu_percent(),
+        "pi_load": pi_load,
         "trafficSign":TRAF_ID_MOBILE[global_data["trafficSign"]] 
         }
 
@@ -410,9 +411,9 @@ def mqtt_on_message(client, userdata, msg):
     #Mobile device have the highest priority
     if recv_msg['dev_ID'] == "mobile":
         global_data["msgSrc"] = "mobile"
-        global_data["speed_limit"] = recv_msg ['maxSpeed']
+        global_data["spdFamilyShare"] = recv_msg ['maxSpeed']
         send_back_msg = {
-            "maxSpeed": global_data["speed_limit"]
+            "maxSpeed": global_data["spdFamilyShare"]
         }
         try:
             mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
@@ -421,10 +422,10 @@ def mqtt_on_message(client, userdata, msg):
             pass
     elif recv_msg['dev_ID'] == "VSK":
         if (global_data["msgSrc"] == "mobile" and global_data["speed_limit"] == 0) or global_data["msgSrc"] == "VSK":
-            global_data["speed_limit"] = recv_msg ['maxSpeed']
+            global_data["spdFamilyShare"] = recv_msg ['maxSpeed']
             global_data["msgSrc"] = "VSK"
             send_back_msg = {
-                "maxSpeed": global_data["speed_limit"]
+                "maxSpeed": global_data["spdFamilyShare"]
             }
             try:
                 mqttClient.publish(MQTT_RECV_TOPIC,json.dumps(send_back_msg, indent=2), retain = True)
@@ -433,6 +434,9 @@ def mqtt_on_message(client, userdata, msg):
                 pass
         else:
             reportErr("speedLimit_deny")
+        
+    if global_data["spdFamilyShare"] < global_data["speed_limit_traf"] and global_data["spdFamilyShare"] != 0:
+        global_data["speed_limit"] = global_data["spdFamilyShare"]
     #REMOVE in final version
     #print('Current Speed Limit: ', global_data["speed_limit"])
 

@@ -31,7 +31,7 @@ def updateDataIVT1(new_data, des):
     des['battery_voltage'] = (new_data[2]*2)/10
 
 def updateDataIVT2(new_data, des):
-    des['battery_current'] = new_data[0]
+    des['battery_current'] = new_data[0] if new_data[0] <= 127 else 0
 
 def updateDataCoreLoad0(new_data, des):
     global stop_tranfer_data
@@ -50,6 +50,7 @@ def updateDataCoreload1(new_data, des):
         des['core1_load'] = 0
     #print(new_data.value)
     des['rear_wh_speed'] = round((new_data[6]*256 + new_data[7])*0.05625,2)
+    
 def updateDataCoreLoad2(new_data, des):
     global stop_tranfer_data
     if stop_tranfer_data == 0:
@@ -69,5 +70,12 @@ def updateDataPI1(new_data, des):
 
 def updateDataPI2(new_data, des):
     des["trafficSign"] = TRAF_ID[new_data[2]]
-    des["speed_limit_traf"] = 30 if new_data[2] == 0 else 100
     des["newTrafSign_flg"] = 1
+    if new_data[2] == 0:
+        des["speed_limit_traf"] = 30        
+        if des["spdFamilyShare"] > 30:
+            des["speed_limit"] = 30
+        
+    if new_data[2] == 1:
+        des["speed_limit_traf"] = 100
+        des["speed_limit"] = des["spdFamilyShare"]
