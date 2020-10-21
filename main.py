@@ -239,13 +239,16 @@ def TrafSign_Thread():
 
     while True:
         #if global_data["newTrafSign_flg"]:
-        data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,int(global_data["spdFamilyShare"]*2),0,0,0]
+        if global_data["spdFamilyShare"] <= 70:
+            data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,int(global_data["spdFamilyShare"]*2),0,0,0]
+        else:
+            data = [TRAF_ID_VCU[global_data["trafficSign"]],global_data["speed_limit_traf"],0,0,0,0,0,0]
+
         message = can.Message(arbitration_id=CAN['PI1']['id'], extended_id=False, data=data)
         try:
             canBus.send(message)
         except Exception as ex:
             pass
-        global_data["newTrafSign_flg"] = 0
         time.sleep(0.1)
         #else:
             #pass
@@ -407,7 +410,6 @@ def updatePayload():
 def mqtt_on_message(client, userdata, msg):
     global mqttClient, global_data,initDone_MQTT
     recv_msg = json.loads(str(msg.payload))
-    
     #Mobile device have the highest priority
     if recv_msg['dev_ID'] == "mobile":
         global_data["msgSrc"] = "mobile"
@@ -437,6 +439,12 @@ def mqtt_on_message(client, userdata, msg):
         
     if global_data["spdFamilyShare"] < global_data["speed_limit_traf"] and global_data["spdFamilyShare"] != 0:
         global_data["speed_limit"] = global_data["spdFamilyShare"]
+        
+    if global_data["spdFamilyShare"] > global_data["speed_limit_traf"]:
+        global_data["speed_limit"] = global_data["speed_limit_traf"]
+        
+    if global_data["spdFamilyShare"] == 0 and global_data["speed_limit_traf"] == 100:
+        global_data["speed_limit"] = 0
     #REMOVE in final version
     #print('Current Speed Limit: ', global_data["speed_limit"])
 

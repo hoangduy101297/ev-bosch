@@ -1,5 +1,6 @@
 from __future__ import division
 
+WAIT_TIME_T15_OFF = 5*5 
 global TRAF_ID,prev_T15_st,cnt,str_cnt,stop_tranfer_data
 TRAF_ID = ["SpdLim","NoLim","Pedes","Stop","NoTraf"]
 
@@ -18,7 +19,7 @@ def updateDataVCU2(new_data, des):
             str_cnt = 1
         if str_cnt == 1:
             cnt = cnt + 1
-            if cnt >= 10:
+            if cnt >= WAIT_TIME_T15_OFF:
                 stop_tranfer_data = 1
                 str_cnt = 0
     else:
@@ -74,6 +75,8 @@ def updateDataPI2(new_data, des):
     if new_data[2] == 0:
         des["speed_limit_traf"] = 30        
         if des["spdFamilyShare"] > 30:
+            des["speed_limit"] = 30
+        elif des["spdFamilyShare"] == 0:
             des["speed_limit"] = 30
         
     if new_data[2] == 1:
