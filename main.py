@@ -17,6 +17,7 @@ import paho.mqtt.client as mqtt
 from kafka import KafkaProducer
 from my_can_lib import *
 import subprocess
+import math
 
 
 ######################################################################
@@ -40,13 +41,13 @@ COM_PUBLISH_RATE = 1 #700ms
 RESET_DELAY_TIME = 1 #1s
 
 #Kafka constant
-KAFKA_HOST = "xvc-bosch.westus.cloudapp.azure.com"
+KAFKA_HOST = "vcx-bosch.southeastasia.cloudapp.azure.com"
 KAFKA_PORT = 9092
 KAFKA_MACID = "d037456fab5d"
 KAFKA_SEND_TOPIC = "vsk-topic"
 
 #Mqtt constant
-MQTT_HOST = "xvc-bosch.westus.cloudapp.azure.com"
+MQTT_HOST = "vcx-bosch.southeastasia.cloudapp.azure.com"
 MQTT_PORT = 1883
 MQTT_SEND_TOPIC = "mobile-topic"
 MQTT_RECV_TOPIC = "mobileToPi-topic"
@@ -354,6 +355,7 @@ def updatePayload():
     pi_load = psutil.cpu_percent()
     updateErrMsg()
     current_milli_time = int(round(time.time() * 1000))
+    
     kafka_data = {
         "action": "TEST_DATA",
         "timestamp": "%d" %(current_milli_time),
@@ -366,8 +368,8 @@ def updatePayload():
             "type": "PI",
             "speed_limit": global_data["speed_limit"], 
             "battery_status": global_data["battery_status"], 
-            "front_wh_speed": global_data["front_wh_speed"], 
-            "rear_wh_speed": global_data["rear_wh_speed"], 
+            "front_wh_speed": math.ceil(global_data["front_wh_speed"]) -1 if global_data["front_wh_speed"] != 0 else 0, 
+            "rear_wh_speed": math.ceil(global_data["rear_wh_speed"]) - 1 if global_data["rear_wh_speed"] != 0 else 0, 
             "odo_meter": global_data["odo_meter"], 
             "battery_voltage": global_data["battery_voltage"], 
             "battery_current": global_data["battery_current"],
@@ -387,8 +389,8 @@ def updatePayload():
     mobile_data = {
         "maxSpeed": global_data["speed_limit"],
         "batteryPercent": global_data["battery_status"],
-        "frontWheelSpeed": global_data["front_wh_speed"],
-        "rearWheelSpeed": global_data["rear_wh_speed"],
+        "frontWheelSpeed": (math.ceil(global_data["front_wh_speed"]) - 1) if global_data["front_wh_speed"] != 0 else 0,
+        "rearWheelSpeed": (math.ceil(global_data["rear_wh_speed"]) -1) if global_data["rear_wh_speed"] != 0 else 0,
         "odoMeter": global_data["odo_meter"],
         "voltage": global_data["battery_voltage"],
         "ampere": global_data["battery_current"],
@@ -445,6 +447,9 @@ def mqtt_on_message(client, userdata, msg):
         
     if global_data["spdFamilyShare"] == 0 and global_data["speed_limit_traf"] == 100:
         global_data["speed_limit"] = 0
+        
+    if global_data["spdFamilyShare"] == 0 and global_data["speed_limit_traf"] == 30:
+        global_data["speed_limit"] = 30
     #REMOVE in final version
     #print('Current Speed Limit: ', global_data["speed_limit"])
 
